@@ -2320,7 +2320,7 @@ const TagInfo* mnTagList() {
 
 bool isMakerIfd(IfdId ifdId) {
   bool rc = false;
-  const GroupInfo* ii = find(groupInfo, ifdId);
+  auto ii = Exiv2::find(groupInfo, ifdId);
   if (ii && 0 == strcmp(ii->ifdName_, "Makernote")) {
     rc = true;
   }
@@ -2364,7 +2364,7 @@ void taglist(std::ostream& os, IfdId ifdId) {
 }  // taglist
 
 const TagInfo* tagList(IfdId ifdId) {
-  const GroupInfo* ii = find(groupInfo, ifdId);
+  auto ii = Exiv2::find(groupInfo, ifdId);
   if (!ii || !ii->tagList_)
     return nullptr;
   return ii->tagList_();
@@ -2399,21 +2399,21 @@ const TagInfo* tagInfo(const std::string& tagName, IfdId ifdId) {
 
 IfdId groupId(const std::string& groupName) {
   IfdId ifdId = IfdId::ifdIdNotSet;
-  const GroupInfo* ii = find(groupInfo, GroupInfo::GroupName(groupName));
+  auto ii = Exiv2::find(groupInfo, groupName);
   if (ii)
     ifdId = static_cast<IfdId>(ii->ifdId_);
   return ifdId;
 }
 
 const char* ifdName(IfdId ifdId) {
-  const GroupInfo* ii = find(groupInfo, ifdId);
+  auto ii = Exiv2::find(groupInfo, ifdId);
   if (!ii)
     return groupInfo[0].ifdName_;
   return ii->ifdName_;
 }
 
 const char* groupName(IfdId ifdId) {
-  const GroupInfo* ii = find(groupInfo, ifdId);
+  auto ii = Exiv2::find(groupInfo, ifdId);
   if (!ii)
     return groupInfo[0].groupName_;
   return ii->groupName_;
@@ -2612,7 +2612,7 @@ std::ostream& print0x0007(std::ostream& os, const Value& value, const ExifData*)
     }
     std::ostringstream oss;
     oss.copyfmt(os);
-    const double t = 3600 * value.toFloat(0) + 60 * value.toFloat(1) + value.toFloat(2);
+    const double t = 3600.0 * value.toInt64(0) + 60.0 * value.toInt64(1) + value.toFloat(2);
     enforce<std::overflow_error>(std::isfinite(t), "Non-finite time value");
     int p = 0;
     const double fraction = std::fmod(t, 1);
@@ -3047,7 +3047,7 @@ const GroupInfo* groupList() {
 }
 
 const TagInfo* tagList(const std::string& groupName) {
-  const GroupInfo* ii = find(groupInfo, GroupInfo::GroupName(groupName));
+  auto ii = Exiv2::find(groupInfo, groupName);
   if (!ii || !ii->tagList_) {
     return nullptr;
   }

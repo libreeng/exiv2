@@ -181,6 +181,7 @@ Preset CMake variables:
   EXIV2_ENABLE_BMFF:BOOL="TRUE"
   EXIV2_ENABLE_CURL:BOOL="TRUE"
   EXIV2_ENABLE_NLS:BOOL="FALSE"
+  EXIV2_ENABLE_VIDEO:BOOL="TRUE"
   EXIV2_ENABLE_PNG:BOOL="TRUE"
   EXIV2_ENABLE_WEBREADY:BOOL="TRUE"
   EXIV2_TEAM_WARNINGS_AS_ERRORS:BOOL="TRUE"
@@ -986,7 +987,7 @@ Except for the `unitTests`,  CMake needs to find a python3 interpreter in the sy
 | Name               | Language  | Location    | Command<br>_(in build directory)_ | CMake Option to Build          |
 |:--                 |:--        |:--                      |:--                    |:--                             |
 | bashTests          | python    | tests/bash_tests       | $ ctest -R bash        | -DEXIV2_BUILD_SAMPLES=ON       |
-| bugfixTests        | python    | tests/bugfixes          | $ ctest -R bugfix     |                                |
+| bugfixTests        | python    | tests/bugfixes          | $ ctest -R bugfix     | -DEXIV2_ENBALE_VIDEO=ON        |
 | lensTest           | C++       | tests/lens_tests        | $ ctest -R lens       |                                |
 | tiffTests          | python    | tests/tiff_test         | $ ctest -R tiff       |                                |
 | unitTests          | C++       | unitTests/              | $ ctest -R unit       | -DEXIV2_BUILD_UNIT_TESTS=ON    |
@@ -1217,7 +1218,7 @@ Update your system and install the build tools and dependencies (zlib, expat, gt
 
 ```bash
 $ sudo apt --yes update
-$ sudo apt install --yes build-essential git clang ccache python3 libxml2-utils cmake python3 libexpat1-dev libz-dev zlib1g-dev libbrotli-dev libssh-dev libcurl4-openssl-dev libgtest-dev google-mock
+$ sudo apt install --yes build-essential git clang ccache python3 libxml2-utils cmake python3 libexpat1-dev libz-dev zlib1g-dev libbrotli-dev libssh-dev libcurl4-openssl-dev libgtest-dev google-mock libinih-dev
 ```
 
 For users of other platforms, the script <exiv2dir>/ci/install_dependencies.sh has code used to configure many platforms.  The code in that file is a useful guide to configuring your platform.

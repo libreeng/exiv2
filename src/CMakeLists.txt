@@ -57,7 +57,6 @@ set(PUBLIC_HEADERS
     ../include/exiv2/http.hpp
     ../include/exiv2/image.hpp
     ../include/exiv2/image_types.hpp
-    ../include/exiv2/ini.hpp
     ../include/exiv2/iptc.hpp
     ../include/exiv2/jp2image.hpp
     ../include/exiv2/jpgimage.hpp
@@ -81,10 +80,10 @@ set(PUBLIC_HEADERS
     ../include/exiv2/webpimage.hpp
     ../include/exiv2/xmp_exiv2.hpp
     ../include/exiv2/xmpsidecar.hpp
-    ../include/exiv2/quicktimevideo.hpp
 )
 
 add_library( exiv2lib
+    asfvideo.cpp
     basicio.cpp
     bmffimage.cpp
     bmpimage.cpp
@@ -101,7 +100,6 @@ add_library( exiv2lib
     gifimage.cpp
     http.cpp
     image.cpp
-    ini.cpp
     iptc.cpp
     jp2image.cpp
     jpgimage.cpp
@@ -124,7 +122,6 @@ add_library( exiv2lib
     webpimage.cpp
     xmp.cpp
     xmpsidecar.cpp
-    quicktimevideo.cpp
     ${PUBLIC_HEADERS}
     $<TARGET_OBJECTS:exiv2lib_int>
 )
@@ -144,14 +141,22 @@ if( EXIV2_ENABLE_PNG )
     target_sources(exiv2lib PRIVATE pngimage.cpp ../include/exiv2/pngimage.hpp)
 endif()
 
+if( EXV_ENABLE_VIDEO )
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ../include/exiv2/asfvideo.hpp)
+    target_sources(exiv2lib PRIVATE asfvideo.cpp ../include/exiv2/asfvideo.hpp)
+
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ../include/exiv2/matroskavideo.hpp)
+    target_sources(exiv2lib PRIVATE matroskavideo.cpp ../include/exiv2/matroskavideo.hpp)
+
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ../include/exiv2/quicktimevideo.hpp)
+    target_sources(exiv2lib PRIVATE quicktimevideo.cpp ../include/exiv2/quicktimevideo.hpp)
+
+    set(PUBLIC_HEADERS ${PUBLIC_HEADERS} ../include/exiv2/riffvideo.hpp)
+    target_sources(exiv2lib PRIVATE riffvideo.cpp ../include/exiv2/riffvideo.hpp)
+endif()
 
 # Other library target properties
 # ---------------------------------------------------------
-
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
-    # Do not check format overflows on this file, to skip a false positive warning
-    set_source_files_properties(value.cpp PROPERTIES COMPILE_FLAGS -Wno-format-overflow)
-endif()
 
 set_target_properties( exiv2lib PROPERTIES
     VERSION       ${PROJECT_VERSION}
@@ -179,10 +184,12 @@ target_include_directories(exiv2lib SYSTEM PRIVATE
 if (EXIV2_ENABLE_XMP OR EXIV2_ENABLE_EXTERNAL_XMP)
     target_include_directories(exiv2lib PRIVATE ${EXPAT_INCLUDE_DIR})
     target_link_libraries(exiv2lib PRIVATE EXPAT::EXPAT)
+    list(APPEND requires_private_list "expat")
 endif()
 
 if (EXIV2_ENABLE_XMP)
     target_link_libraries(exiv2lib PRIVATE exiv2-xmp)
+    list(APPEND libs_private_list "exiv2-xmp")
 elseif(EXIV2_ENABLE_EXTERNAL_XMP)
     target_link_libraries(exiv2lib PUBLIC ${XMPSDK_LIBRARY})
     target_include_directories(exiv2lib PUBLIC ${XMPSDK_INCLUDE_DIR})
@@ -201,12 +208,11 @@ target_include_directories(exiv2lib_int PUBLIC
 )
 
 if (EXIV2_ENABLE_WEBREADY)
-
     if( EXIV2_ENABLE_CURL )
         target_include_directories(exiv2lib SYSTEM PRIVATE ${CURL_INCLUDE_DIR} )
         target_link_libraries(exiv2lib PRIVATE ${CURL_LIBRARIES})
+        list(APPEND requires_private_list "libcurl")
     endif()
-
 endif()
 
 if (WIN32)
@@ -229,26 +235,52 @@ else()
 endif()
 
 if( EXIV2_ENABLE_PNG )
-	target_link_libraries( exiv2lib PRIVATE ZLIB::ZLIB)
+    target_link_libraries( exiv2lib PRIVATE ZLIB::ZLIB)
+    list(APPEND requires_private_list "zlib")
 endif()
 
 if( EXIV2_ENABLE_BMFF AND BROTLI_FOUND )
     target_link_libraries( exiv2lib PRIVATE ${Brotli_LIBRARIES})
     target_include_directories(exiv2lib PRIVATE ${Brotli_INCLUDE_DIRS})
+    list(APPEND requires_private_list "libbrotlidec")
 endif()
 
 if( EXIV2_ENABLE_NLS )
     target_link_libraries(exiv2lib PRIVATE ${Intl_LIBRARIES})
     target_include_directories(exiv2lib PRIVATE ${Intl_INCLUDE_DIRS})
     target_include_directories(exiv2lib_int PRIVATE ${Intl_INCLUDE_DIRS})
+    if( Intl_LIBRARIES )
+        list(APPEND libs_private_list "intl")
+    endif()
     # Definition needed for translations
     join_paths(EXV_LOCALEDIR ".." "${CMAKE_INSTALL_LOCALEDIR}")
     target_compile_definitions(exiv2lib PUBLIC EXV_LOCALEDIR="${EXV_LOCALEDIR}")
 endif()
 
-if( ICONV_FOUND )
+if( Iconv_FOUND AND Iconv_LIBRARIES )
     target_link_libraries( exiv2lib PRIVATE Iconv::Iconv )
+    list(APPEND libs_private_list "iconv")
 endif()
+
+if( EXIV2_ENABLE_INIH )
+  target_link_libraries( exiv2lib_int PRIVATE inih::libinih )
+  target_link_libraries( exiv2lib_int PRIVATE inih::inireader )
+  target_link_libraries( exiv2lib PRIVATE inih::libinih )
+  target_link_libraries( exiv2lib PRIVATE inih::inireader )
+  list(APPEND requires_private_list "INIReader")
+endif()
+
+# Convert private lists to delimited strings
+list(SORT libs_private_list)
+string(REPLACE ";" " -l" libs_private_string "${libs_private_list}")
+if(libs_private_string)
+    string(PREPEND libs_private_string "-l")
+endif()
+list(SORT requires_private_list)
+string(REPLACE ";" ", " requires_private_string "${requires_private_list}")
+
+set(libs_private_for_pc_file "${libs_private_string}" PARENT_SCOPE)
+set(requires_private_for_pc_file "${requires_private_string}" PARENT_SCOPE)
 
 write_basic_package_version_file(exiv2ConfigVersion.cmake COMPATIBILITY ExactVersion)
 

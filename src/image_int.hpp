@@ -12,7 +12,9 @@
 #include <ostream>  // for ostream, basic_ostream::put
 #include <string>
 
-#if (defined(__GNUG__) || defined(__GNUC__)) || defined(__clang__)
+#if defined(__MINGW32__)
+#define ATTRIBUTE_FORMAT_PRINTF __attribute__((format(__MINGW_PRINTF_FORMAT, 1, 0)))
+#elif defined(__GNUC__)
 #define ATTRIBUTE_FORMAT_PRINTF __attribute__((format(printf, 1, 0)))
 #else
 #define ATTRIBUTE_FORMAT_PRINTF
@@ -98,7 +100,7 @@ inline binaryToStringHelper<T> binaryToString(const Slice<T> sl) noexcept {
 }
 
 /// @brief indent output for kpsRecursive in \em printStructure() \em .
-std::string indent(size_t depth);
+std::string indent(size_t i);
 
 }  // namespace Exiv2::Internal
 

@@ -30,6 +30,8 @@ option( EXIV2_ENABLE_WEBREADY         "Build webready support into library"     
 option( EXIV2_ENABLE_CURL             "Use libcurl for HttpIo (WEBREADY)"                     OFF )
 option( EXIV2_ENABLE_BMFF             "Build with BMFF support"                               ON  )
 option( EXIV2_ENABLE_BROTLI           "Use Brotli for JPEG XL compressed boxes (BMFF)"        ON  )
+option( EXIV2_ENABLE_VIDEO            "Build with video support"                              ON )
+option( EXIV2_ENABLE_INIH             "Use inih library"                                      ON  )
 
 option( EXIV2_BUILD_SAMPLES           "Build sample applications"                             OFF )
 option( EXIV2_BUILD_EXIV2_COMMAND     "Build exiv2 command-line executable"                   ON  )
@@ -141,8 +143,17 @@ if (EXIV2_TEAM_PACKAGING)
   include(cmake/packaging.cmake)
 endif()
 
-join_paths(libdir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_LIBDIR}")
-join_paths(includedir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+# Handle both relative and absolute paths (e.g. NixOS) for a relocatable package
+if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+    set(libdir_for_pc_file "${CMAKE_INSTALL_LIBDIR}")
+else()
+    join_paths(libdir_for_pc_file "\${exec_prefix}" "${CMAKE_INSTALL_LIBDIR}")
+endif()
+if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
+    set(includedir_for_pc_file "${CMAKE_INSTALL_INCLUDEDIR}")
+else()
+    join_paths(includedir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+endif()
 configure_file(cmake/exiv2.pc.in exiv2.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/exiv2.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 

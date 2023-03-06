@@ -20,7 +20,10 @@ namespace Exiv2::Internal {
 class CiffHeader;
 class CiffComponent;
 struct CrwMapping;
-using CrwSubDir = std::pair<uint16_t, uint16_t>;
+using CrwSubDir = struct {
+  uint16_t dir;
+  uint16_t parent;
+};
 
 // *****************************************************************************
 // type definitions
@@ -527,13 +530,6 @@ struct CrwMapping {
  */
 class CrwMap {
  public:
-  ~CrwMap() = delete;
-  //! @name Not implemented
-  //@{
-  CrwMap(const CrwMap&) = delete;
-  CrwMap& operator=(const CrwMap&) = delete;
-  //@}
-
   /*!
     @brief Decode image metadata from a CRW entry, convert and add it
            to the image metadata. This function converts only one CRW

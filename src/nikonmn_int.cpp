@@ -7,6 +7,7 @@
 #include "i18n.h"  // NLS support.
 #include "makernote_int.hpp"
 #include "tags_int.hpp"
+#include "utils.hpp"
 #include "value.hpp"
 
 // + standard includes
@@ -504,8 +505,8 @@ constexpr TagInfo Nikon3MakerNote::tagInfo_[] = {
      printValue},
     {0x00a9, "ImageOptimization", N_("Image Optimization"), N_("Image optimization"), IfdId::nikon3Id,
      SectionId::makerTags, asciiString, -1, printValue},
-    {0x00aa, "Saturation", N_("Saturation"), N_("Saturation"), IfdId::nikon3Id, SectionId::makerTags, asciiString, -1,
-     printValue},
+    {0x00aa, "Saturation2", N_("Saturation 2"), N_("Saturation 2"), IfdId::nikon3Id, SectionId::makerTags, asciiString,
+     -1, printValue},
     {0x00ab, "VariProgram", N_("Program Variation"), N_("Program variation"), IfdId::nikon3Id, SectionId::makerTags,
      asciiString, -1, printValue},
     {0x00ac, "ImageStabilization", N_("Image Stabilization"), N_("Image stabilization"), IfdId::nikon3Id,
@@ -994,9 +995,9 @@ static void printFlashCompensationValue(std::ostream& os, const unsigned char va
     float output = 0.0;
     if (value < 128) {
       if (value != 0)
-        output = float(value) * float(-1.0);
+        output = static_cast<float>(value) * static_cast<float>(-1.0);
     } else {
-      output = float(256.0) - float(value);
+      output = static_cast<float>(256.0) - static_cast<float>(value);
     }
     os.precision(1);
     if (value != 0)
@@ -1621,9 +1622,9 @@ constexpr TagInfo Nikon3MakerNote::tagInfoLd4_[] = {
      1, printApertureLd4},
     {56, "FNumber", N_("F-Number"), N_("F-Number"), IfdId::nikonLd4Id, SectionId::makerTags, unsignedShort, 1,
      printApertureLd4},
-    {60, "FocalLength", N_("Focal Length"), N_("Focal length"), IfdId::nikonLd4Id, SectionId::makerTags, unsignedShort,
-     1, printFocalLd4},
-    {79, "FocusDistance", N_("Focus Distance"), N_("Focus distance"), IfdId::nikonLd4Id, SectionId::makerTags,
+    {60, "FocalLength2", N_("Focal Length 2"), N_("Focal length 2"), IfdId::nikonLd4Id, SectionId::makerTags,
+     unsignedShort, 1, printFocalLd4},
+    {79, "FocusDistance2", N_("Focus Distance 2"), N_("Focus distance 2"), IfdId::nikonLd4Id, SectionId::makerTags,
      unsignedByte, 1, printFocusDistance},
     // End of list marker
     {0xffff, "(UnknownNikonLd4Tag)", "(UnknownNikonLd4Tag)", N_("Unknown Nikon Lens Data 3 Tag"), IfdId::nikonLd4Id,
@@ -1834,7 +1835,7 @@ std::ostream& Nikon3MakerNote::printAfPointsInFocus(std::ostream& os, const Valu
     auto pos = metadata->findKey(ExifKey("Exif.Image.Model"));
     if (pos != metadata->end() && pos->count() != 0) {
       std::string model = pos->toString();
-      if (model.find("NIKON D") != std::string::npos) {
+      if (Internal::contains(model, "NIKON D")) {
         dModel = true;
       }
     }
@@ -1867,7 +1868,7 @@ std::ostream& Nikon3MakerNote::print0x0089(std::ostream& os, const Value& value,
     auto pos = metadata->findKey(key);
     if (pos != metadata->end() && pos->count() != 0) {
       std::string model = pos->toString();
-      if (model.find("D70") != std::string::npos) {
+      if (Internal::contains(model, "D70")) {
         d70 = true;
       }
     }
@@ -3791,7 +3792,7 @@ std::ostream& Nikon3MakerNote::print0x009e(std::ostream& os, const Value& value,
     if (l != 0)
       trim = false;
     std::string d = s.empty() ? "" : "; ";
-    const TagDetails* td = find(nikonRetouchHistory, l);
+    auto td = Exiv2::find(nikonRetouchHistory, l);
     if (td) {
       s = std::string(exvGettext(td->label_)).append(d).append(s);
     } else {
@@ -3807,31 +3808,35 @@ std::ostream& Nikon3MakerNote::printLensId4ZMount(std::ostream& os, const Value&
   }
 
   // from https://github.com/exiftool/exiftool/blob/12.44/lib/Image/ExifTool/Nikon.pm#L4969
-  using ZMntLens = std::tuple<uint16_t, const char*, const char*>;
-  static constexpr auto zmountlens = std::array{
-      ZMntLens(1, "Nikon", "Nikkor Z 24-70mm f/4 S"),
-      ZMntLens(2, "Nikon", "Nikkor Z 14-30mm f/4 S"),
-      ZMntLens(4, "Nikon", "Nikkor Z 35mm f/1.8 S"),
-      ZMntLens(8, "Nikon", "Nikkor Z 58mm f/0.95 S Noct"),  // IB
-      ZMntLens(9, "Nikon", "Nikkor Z 50mm f/1.8 S"),
-      ZMntLens(11, "Nikon", "Nikkor Z DX 16-50mm f/3.5-6.3 VR"),
-      ZMntLens(12, "Nikon", "Nikkor Z DX 50-250mm f/4.5-6.3 VR"),
-      ZMntLens(13, "Nikon", "Nikkor Z 24-70mm f/2.8 S"),
-      ZMntLens(14, "Nikon", "Nikkor Z 85mm f/1.8 S"),
-      ZMntLens(15, "Nikon", "Nikkor Z 24mm f/1.8 S"),              // IB
-      ZMntLens(16, "Nikon", "Nikkor Z 70-200mm f/2.8 VR S"),       // IB
-      ZMntLens(17, "Nikon", "Nikkor Z 20mm f/1.8 S"),              // IB
-      ZMntLens(18, "Nikon", "Nikkor Z 24-200mm f/4-6.3 VR"),       // IB
-      ZMntLens(21, "Nikon", "Nikkor Z 50mm f/1.2 S"),              // IB
-      ZMntLens(22, "Nikon", "Nikkor Z 24-50mm f/4-6.3"),           // IB
-      ZMntLens(23, "Nikon", "Nikkor Z 14-24mm f/2.8 S"),           // IB
-      ZMntLens(24, "Nikon", "Nikkor Z MC 105mm f/2.8 VR S"),       // IB
-      ZMntLens(27, "Nikon", "Nikkor Z MC 50mm f/2.8"),             // IB
-      ZMntLens(28, "Nikon", "Nikkor Z 100-400mm f/4.5-5.6 VR S"),  // 28
-      ZMntLens(29, "Nikon", "Nikkor Z 28mm f/2.8"),                // IB
-      ZMntLens(30, "Nikon", "Nikkor Z 400mm f/2.8 TC VR S"),       // 28
-      ZMntLens(31, "Nikon", "Nikkor Z 24-120 f/4"),                // 28
-      ZMntLens(32, "Nikon", "Nikkor Z 800mm f/6.3 VR S"),          // 28
+  using lens = struct {
+    uint16_t l;
+    const char* vendor;
+    const char* name;
+  };
+  static constexpr lens zmountlens[] = {
+      {1, "Nikon", "Nikkor Z 24-70mm f/4 S"},
+      {2, "Nikon", "Nikkor Z 14-30mm f/4 S"},
+      {4, "Nikon", "Nikkor Z 35mm f/1.8 S"},
+      {8, "Nikon", "Nikkor Z 58mm f/0.95 S Noct"},  // IB
+      {9, "Nikon", "Nikkor Z 50mm f/1.8 S"},
+      {11, "Nikon", "Nikkor Z DX 16-50mm f/3.5-6.3 VR"},
+      {12, "Nikon", "Nikkor Z DX 50-250mm f/4.5-6.3 VR"},
+      {13, "Nikon", "Nikkor Z 24-70mm f/2.8 S"},
+      {14, "Nikon", "Nikkor Z 85mm f/1.8 S"},
+      {15, "Nikon", "Nikkor Z 24mm f/1.8 S"},              // IB
+      {16, "Nikon", "Nikkor Z 70-200mm f/2.8 VR S"},       // IB
+      {17, "Nikon", "Nikkor Z 20mm f/1.8 S"},              // IB
+      {18, "Nikon", "Nikkor Z 24-200mm f/4-6.3 VR"},       // IB
+      {21, "Nikon", "Nikkor Z 50mm f/1.2 S"},              // IB
+      {22, "Nikon", "Nikkor Z 24-50mm f/4-6.3"},           // IB
+      {23, "Nikon", "Nikkor Z 14-24mm f/2.8 S"},           // IB
+      {24, "Nikon", "Nikkor Z MC 105mm f/2.8 VR S"},       // IB
+      {27, "Nikon", "Nikkor Z MC 50mm f/2.8"},             // IB
+      {28, "Nikon", "Nikkor Z 100-400mm f/4.5-5.6 VR S"},  // 28
+      {29, "Nikon", "Nikkor Z 28mm f/2.8"},                // IB
+      {30, "Nikon", "Nikkor Z 400mm f/2.8 TC VR S"},       // 28
+      {31, "Nikon", "Nikkor Z 24-120 f/4"},                // 28
+      {32, "Nikon", "Nikkor Z 800mm f/6.3 VR S"},          // 28
   };
 
   auto lid = static_cast<uint16_t>(value.toInt64());

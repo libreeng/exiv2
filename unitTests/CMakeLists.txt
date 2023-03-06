@@ -1,7 +1,11 @@
 find_package(GTest REQUIRED)
 
+# video support.
+if( EXV_ENABLE_VIDEO )
+    set(VIDEO_SUPPORT test_asfvideo.cpp  test_matroskavideo.cpp test_riffVideo.cpp)
+endif()
+
 add_executable(unit_tests
-    mainTestRunner.cpp
     test_basicio.cpp
     test_bmpimage.cpp
     test_cr2header_int.cpp
@@ -27,6 +31,7 @@ add_executable(unit_tests
     test_TimeValue.cpp
     test_utils.cpp
     test_XmpKey.cpp
+    ${VIDEO_SUPPORT}
     $<TARGET_OBJECTS:exiv2lib_int>
 )
 
@@ -39,10 +44,13 @@ target_compile_definitions(unit_tests
 target_link_libraries(unit_tests
     PRIVATE
         exiv2lib
-        GTest::gtest
         GTest::gtest_main
         std::filesystem
 )
+
+if( EXIV2_ENABLE_INIH )
+  target_link_libraries(unit_tests PRIVATE inih::libinih inih::inireader)
+endif()
 
 # ZLIB is used in exiv2lib_int.
 if( EXIV2_ENABLE_PNG )

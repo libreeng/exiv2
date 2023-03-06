@@ -10,6 +10,7 @@
 #include "convert.hpp"
 #include "getopt.hpp"
 #include "i18n.h"  // NLS support.
+#include "utils.hpp"
 #include "xmp_exiv2.hpp"
 
 #include <algorithm>
@@ -41,12 +42,19 @@ constexpr auto emptyYodAdjust_ = std::array{
 };
 
 //! List of all command identifiers and corresponding strings
-constexpr auto cmdIdAndString = std::array{
-    std::pair(CmdId::add, "add"),
-    std::pair(CmdId::set, "set"),
-    std::pair(CmdId::del, "del"),
-    std::pair(CmdId::reg, "reg"),
-    std::pair(CmdId::invalid, "invalidCmd"),  // End of list marker
+constexpr struct CmdIdAndString {
+  CmdId cmdId_;
+  const char* string_;
+  //! Comparison operator for \em string
+  bool operator==(const std::string& string) const {
+    return string == string_;
+  }
+} cmdIdAndString[] = {
+    {CmdId::add, "add"},
+    {CmdId::set, "set"},
+    {CmdId::del, "del"},
+    {CmdId::reg, "reg"},
+    {CmdId::invalid, "invalidCmd"},  // End of list marker
 };
 
 // Return a command Id for a command string
@@ -187,13 +195,9 @@ int main(int argc, char* const argv[]) {
 
 Params::Params() :
     optstring_(":hVvqfbuktTFa:Y:O:D:r:p:P:d:e:i:c:m:M:l:S:g:K:n:Q:"),
-
     target_(ctExif | ctIptc | ctComment | ctXmp),
-
+    yodAdjust_(emptyYodAdjust_),
     format_("%Y%m%d_%H%M%S") {
-  yodAdjust_[yodYear] = emptyYodAdjust_[yodYear];
-  yodAdjust_[yodMonth] = emptyYodAdjust_[yodMonth];
-  yodAdjust_[yodDay] = emptyYodAdjust_[yodDay];
 }
 
 Params& Params::instance() {
@@ -462,7 +466,7 @@ int Params::option(int opt, const std::string& optArg, int optOpt) {
 
 int Params::setLogLevel(const std::string& optArg) {
   int rc = 0;
-  const char logLevel = tolower(optArg[0]);
+  const auto logLevel = static_cast<char>(tolower(optArg[0]));
   switch (logLevel) {
     case 'd':
       Exiv2::LogMsg::setLevel(Exiv2::LogMsg::debug);
@@ -1112,7 +1116,7 @@ bool parseTime(const std::string& ts, int64_t& time) {
     hh *= -1;
   }
   // check for the -0 special case
-  if (hh == 0 && hstr.find('-') != std::string::npos)
+  if (hh == 0 && Exiv2::Internal::contains(hstr, '-'))
     sign = -1;
   // MM part, if there is one
   if (!mstr.empty()) {
@@ -1280,15 +1284,15 @@ bool parseCmdLines(ModifyCmds& modifyCmds, const Params::CmdLines& cmdLines) {
 }  // parseCmdLines
 
 #ifdef _WIN32
-static std::string formatArg(const char* arg) {
-  std::string result = "";
+std::string formatArg(const char* arg) {
+  std::string result;
   char b = ' ';
   char e = '\\';
   std::string E = std::string("\\");
   char q = '\'';
   std::string Q = std::string("'");
   bool qt = false;
-  char* a = (char*)arg;
+  char* a = const_cast<char*>(arg);
   while (*a) {
     if (*a == b || *a == e || *a == q)
       qt = true;
@@ -1433,8 +1437,8 @@ bool parseLine(ModifyCmd& modifyCmd, const std::string& line, int num) {
 }  // parseLine
 
 CmdId commandId(const std::string& cmdString) {
-  auto it = std::find_if(cmdIdAndString.begin(), cmdIdAndString.end(), [&](auto cs) { return cs.second == cmdString; });
-  return it != cmdIdAndString.end() ? it->first : CmdId::invalid;
+  auto it = Exiv2::find(cmdIdAndString, cmdString);
+  return it ? it->cmdId_ : CmdId::invalid;
 }
 
 std::string parseEscapes(const std::string& input) {

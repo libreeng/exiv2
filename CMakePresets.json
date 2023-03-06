@@ -18,7 +18,8 @@
         "EXIV2_ENABLE_BMFF": true,
         "EXIV2_BUILD_UNIT_TESTS": true,
         "EXIV2_TEAM_WARNINGS_AS_ERRORS": true,
-        "EXIV2_ENABLE_NLS": false
+        "EXIV2_ENABLE_NLS": false,
+        "EXIV2_ENABLE_VIDEO": true
       }
     },
     {
@@ -27,9 +28,9 @@
       "displayName": "Base preset for Windows (specially useful for CI jobs)",
       "inherits": "base_ninja",
       "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
+        "type": "matches",
+        "string": "${hostSystemName}",
+        "regex": "Windows|CYGWIN.*|MSYS.*"
       }
     },
     {
@@ -141,6 +142,7 @@
       "inherits": "linux-release-NoConan",
       "cacheVariables": { 
         "EXIV2_ENABLE_NLS": true,
+        "EXIV2_ENABLE_VIDEO": false,
         "EXIV2_BUILD_DOC": true
       }
     }

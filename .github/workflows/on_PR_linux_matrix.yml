@@ -11,22 +11,22 @@ on:
 
 jobs:
   Linux:
-    name: 'Ubuntu 20.04 - GCC, BuildType:${{matrix.build_type}}, SHARED:${{matrix.shared_libraries}}'
-    runs-on: ubuntu-latest
+    name: 'Ubuntu 22.04 - GCC, BuildType:${{matrix.build_type}}, SHARED:${{matrix.shared_libraries}}'
+    runs-on: ubuntu-22.04
 
     strategy:
       fail-fast: false
       matrix:
         build_type: [Release, Debug]
         shared_libraries: [ON, OFF]
-        
+
     steps:
       - uses: actions/checkout@v3
 
       - name: install dependencies
         run: |
-          sudo apt-get install ninja-build
-          pip3 install conan==1.54.0
+          sudo apt install -y tree
+          python3 -m pip install conan==1.55.0 ninja
 
       - name: Conan common config
         run: |
@@ -36,23 +36,22 @@ jobs:
 
       - name: Run Conan
         run: |
-          mkdir build && cd build
+          mkdir build-base_linux && cd build-base_linux
           conan profile list
           conan profile show default
           conan install .. -o webready=True --build missing
 
       - name: Build
         run: |
-          cmake --preset base_linux -S . -B build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DBUILD_SHARED_LIBS=${{matrix.shared_libraries}}
-          cmake --build build --parallel
+          cmake --preset base_linux -S . -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DBUILD_SHARED_LIBS=${{matrix.shared_libraries}}
+          cmake --build build-base_linux --parallel
 
       - name: Install
         run: |
-          cd build
-          cmake --install . 
-          tree install
+          cd build-base_linux
+          cmake --install .
 
       - name: Test
         run: |
-          cd build
+          cd build-base_linux
           ctest --output-on-failure

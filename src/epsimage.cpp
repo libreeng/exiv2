@@ -36,7 +36,7 @@ using namespace Exiv2::Internal;
 constexpr auto dosEpsSignature = std::string_view("\xC5\xD0\xD3\xC6");
 
 // first line of EPS
-constexpr auto epsFirstLine = std::array<std::string_view, 3>{
+constexpr std::string_view epsFirstLine[] = {
     "%!PS-Adobe-3.0 EPSF-3.0",
     "%!PS-Adobe-3.0 EPSF-3.0 ",  // OpenOffice
     "%!PS-Adobe-3.1 EPSF-3.0",   // Illustrator
@@ -260,14 +260,13 @@ void readWriteEpsMetadata(BasicIo& io, std::string& xmpPacket, NativePreviewList
     sizeWmf = getULong(data + 16, littleEndian);
     posTiff = getULong(data + 20, littleEndian);
     sizeTiff = getULong(data + 24, littleEndian);
-    const uint16_t checksum = getUShort(data + 28, littleEndian);
 #ifdef DEBUG
     EXV_DEBUG << "readWriteEpsMetadata: EPS section at position " << posEps << ", size " << (posEndEps - posEps)
               << "\n";
     EXV_DEBUG << "readWriteEpsMetadata: WMF section at position " << posWmf << ", size " << sizeWmf << "\n";
     EXV_DEBUG << "readWriteEpsMetadata: TIFF section at position " << posTiff << ", size " << sizeTiff << "\n";
 #endif
-    if (checksum != 0xFFFF) {
+    if (uint16_t checksum = getUShort(data + 28, littleEndian); checksum != 0xFFFF) {
 #ifdef DEBUG
       EXV_DEBUG << "readWriteEpsMetadata: DOS EPS checksum is not FFFF\n";
 #endif
@@ -317,8 +316,7 @@ void readWriteEpsMetadata(BasicIo& io, std::string& xmpPacket, NativePreviewList
 #ifdef DEBUG
   EXV_DEBUG << "readWriteEpsMetadata: First line: " << firstLine << "\n";
 #endif
-  bool matched = std::find(epsFirstLine.begin(), epsFirstLine.end(), firstLine) != epsFirstLine.end();
-  if (!matched) {
+  if (!Exiv2::find(epsFirstLine, firstLine)) {
     throw Error(ErrorCode::kerNotAnImage, "EPS");
   }
 
@@ -1131,7 +1129,7 @@ void EpsImage::writeMetadata() {
 Image::UniquePtr newEpsInstance(BasicIo::UniquePtr io, bool create) {
   auto image = std::make_unique<EpsImage>(std::move(io), create);
   if (!image->good()) {
-    image.reset();
+    return nullptr;
   }
   return image;
 }

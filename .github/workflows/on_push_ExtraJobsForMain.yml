@@ -16,17 +16,15 @@ on:
 
 jobs:
   special_debugRelease:
-    name: 'Ubuntu 20.04 - GCC - Debug+Coverage'
-    runs-on: ubuntu-latest
+    name: 'Ubuntu 22.04 - GCC - Debug+Coverage'
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: install dependencies
         run: |
-          sudo apt-get install ninja-build
-          pip3 install conan==1.54.0
-          pip3 install gcovr
+          python3 -m pip install conan==1.55.0 gcovr ninja
 
       - name: Conan common config
         run: |
@@ -42,7 +40,7 @@ jobs:
 
       - name: Build
         run: |
-          cmake --preset linux-coverage -S . -B build 
+          cmake --preset linux-coverage -S . -B build
           cmake --build build
 
       - name: Tests + Upload coverage

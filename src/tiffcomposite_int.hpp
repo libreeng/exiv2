@@ -366,9 +366,6 @@ struct TiffMappingInfo {
 
 //! Search key for TIFF mapping structures.
 struct TiffMappingInfo::Key {
-  //! Constructor
-  Key(std::string m, uint32_t e, IfdId g) : m_(std::move(m)), e_(e), g_(g) {
-  }
   std::string m_;  //!< Camera make
   uint32_t e_;     //!< Extended tag
   IfdId g_;        //!< %Group
@@ -428,13 +425,13 @@ class TiffEntryBase : public TiffComponent {
                    you should pass std::shared_ptr<DataBuf>(), which is essentially
                    a nullptr.
    */
-  void setData(byte* pData, size_t size, const std::shared_ptr<DataBuf>& storage);
+  void setData(byte* pData, size_t size, std::shared_ptr<DataBuf> storage);
   /*!
     @brief Set the entry's data buffer. A shared_ptr is used to manage the DataBuf
            because TiffEntryBase has a clone method so it is possible (in theory) for
            the DataBuf to have multiple owners.
    */
-  void setData(const std::shared_ptr<DataBuf>& buf);
+  void setData(std::shared_ptr<DataBuf> buf);
   /*!
    @brief Update the value. Takes ownership of the pointer passed in.
 
@@ -534,7 +531,7 @@ class TiffEntryBase : public TiffComponent {
   static size_t writeOffset(byte* buf, size_t offset, TiffType tiffType, ByteOrder byteOrder);
 
   //! Used (internally) to create another reference to the DataBuf reference by storage_.
-  [[nodiscard]] const std::shared_ptr<DataBuf>& storage() const {
+  [[nodiscard]] std::shared_ptr<DataBuf> storage() const {
     return storage_;
   }
 
@@ -864,7 +861,7 @@ class TiffDirectory : public TiffComponent {
   //! @name Protected Creators
   //@{
   //! Copy constructor (used to implement clone()).
-  TiffDirectory(const TiffDirectory& rhs);
+  TiffDirectory(const TiffDirectory&) = default;
   //@}
 
   //! @name Protected Manipulators
@@ -958,7 +955,7 @@ class TiffSubIfd : public TiffEntryBase {
   //! @name Protected Creators
   //@{
   //! Copy constructor (used to implement clone()).
-  TiffSubIfd(const TiffSubIfd& rhs);
+  TiffSubIfd(const TiffSubIfd&) = default;
   TiffSubIfd& operator=(const TiffSubIfd&) = delete;
   //@}
 
@@ -1360,7 +1357,7 @@ class TiffBinaryArray : public TiffEntryBase {
   //! @name Protected Creators
   //@{
   //! Copy constructor (used to implement clone()).
-  TiffBinaryArray(const TiffBinaryArray& rhs);
+  TiffBinaryArray(const TiffBinaryArray&) = default;
   //@}
 
   //! @name Protected Manipulators
@@ -1491,7 +1488,7 @@ class TiffBinaryElement : public TiffEntryBase {
 
  private:
   // DATA
-  ArrayDef elDef_;                           //!< The array element definition
+  ArrayDef elDef_{0, ttUndefined, 0};        //!< The array element definition
   ByteOrder elByteOrder_{invalidByteOrder};  //!< Byte order to read/write the element
 
 };  // class TiffBinaryElement

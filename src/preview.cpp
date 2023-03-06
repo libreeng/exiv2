@@ -52,6 +52,9 @@ class Loader {
   //! Virtual destructor.
   virtual ~Loader() = default;
 
+  Loader(const Loader&) = delete;
+  Loader& operator=(const Loader&) = delete;
+
   //! Loader auto pointer
   using UniquePtr = std::unique_ptr<Loader>;
 
@@ -207,9 +210,6 @@ class LoaderTiff : public Loader {
   //! Constructor
   LoaderTiff(PreviewId id, const Image& image, int parIdx);
 
-  LoaderTiff(const LoaderTiff&) = delete;
-  LoaderTiff& operator=(const LoaderTiff&) = delete;
-
   //! Get properties of a preview image with given params
   [[nodiscard]] PreviewProperties getProperties() const override;
 
@@ -333,7 +333,7 @@ Loader::UniquePtr Loader::create(PreviewId id, const Image& image) {
   auto loader = loaderList_[id].create_(id, image, loaderList_[id].parIdx_);
 
   if (loader && !loader->valid())
-    loader.reset();
+    return nullptr;
 
   return loader;
 }
@@ -730,7 +730,7 @@ DataBuf LoaderTiff::getData() const {
           dataValue.setDataArea(base + offset, size);
       } else {
         // FIXME: the buffer is probably copied twice, it should be optimized
-        enforce(size_ <= io.size(), ErrorCode::kerCorruptedMetadata);
+        Internal::enforce(size_ <= io.size(), ErrorCode::kerCorruptedMetadata);
         DataBuf buf(size_);
         uint32_t idxBuf = 0;
         for (size_t i = 0; i < sizes.count(); i++) {
@@ -741,7 +741,7 @@ DataBuf LoaderTiff::getData() const {
           // see the constructor of LoaderTiff
           // But e.g in malicious files some of these values could be negative
           // That's why we check again for each step here to really make sure we don't overstep
-          enforce(Safe::add(idxBuf, size) <= size_, ErrorCode::kerCorruptedMetadata);
+          Internal::enforce(Safe::add(idxBuf, size) <= size_, ErrorCode::kerCorruptedMetadata);
           if (size != 0 && Safe::add(offset, size) <= static_cast<uint32_t>(io.size())) {
             std::copy_n(base + offset, size, buf.begin() + idxBuf);
           }
@@ -823,8 +823,7 @@ bool LoaderXmpJpeg::readDimensions() {
 DataBuf decodeHex(const byte* src, size_t srcSize) {
   // create decoding table
   byte invalid = 16;
-  std::array<byte, 256> decodeHexTable;
-  decodeHexTable.fill(invalid);
+  auto decodeHexTable = std::vector<byte>(256, invalid);
   for (byte i = 0; i < 10; i++)
     decodeHexTable[static_cast<byte>('0') + i] = i;
   for (byte i = 0; i < 6; i++)
@@ -861,34 +860,26 @@ DataBuf decodeHex(const byte* src, size_t srcSize) {
 const char encodeBase64Table[64 + 1] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 DataBuf decodeBase64(const std::string& src) {
-  const size_t srcSize = src.size();
-
   // create decoding table
   unsigned long invalid = 64;
-  std::array<unsigned long, 256> decodeBase64Table;
-  decodeBase64Table.fill(invalid);
+  auto decodeBase64Table = std::vector<unsigned long>(256, invalid);
   for (unsigned long i = 0; i < 64; i++)
     decodeBase64Table[static_cast<unsigned char>(encodeBase64Table[i])] = i;
 
   // calculate dest size
-  unsigned long validSrcSize = 0;
-  for (unsigned long srcPos = 0; srcPos < srcSize; srcPos++) {
-    if (decodeBase64Table[static_cast<unsigned char>(src[srcPos])] != invalid)
-      validSrcSize++;
-  }
+  auto validSrcSize = static_cast<unsigned long>(
+      std::count_if(src.begin(), src.end(), [=](unsigned char c) { return decodeBase64Table.at(c) != invalid; }));
   if (validSrcSize > ULONG_MAX / 3)
     return {};  // avoid integer overflow
   const unsigned long destSize = (validSrcSize * 3) / 4;
 
   // allocate dest buffer
-  if (destSize > LONG_MAX)
-    return {};  // avoid integer overflow
   DataBuf dest(destSize);
 
   // decode
   for (unsigned long srcPos = 0, destPos = 0; destPos < destSize;) {
     unsigned long buffer = 0;
-    for (int bufferPos = 3; bufferPos >= 0 && srcPos < srcSize; srcPos++) {
+    for (int bufferPos = 3; bufferPos >= 0 && srcPos < src.size(); srcPos++) {
       unsigned long srcValue = decodeBase64Table[static_cast<unsigned char>(src[srcPos])];
       if (srcValue == invalid)
         continue;

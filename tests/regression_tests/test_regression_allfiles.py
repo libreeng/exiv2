@@ -29,6 +29,11 @@ def get_valid_files(data_dir):
         ".webp",
         ".xmp",
         ".mp4",
+        ".asf",
+        ".avi",
+        ".mkv",
+        ".wav",
+        ".mov"
     ]
 
     excludes = [
@@ -65,6 +70,8 @@ def get_valid_files(data_dir):
         "issue_2377_poc.mp4",
         "issue_2383_poc.mp4",
         "issue_2393_poc.mp4",
+        "issue_2423_poc.mp4",
+        "issue_2427_poc.jpg",
         "2018-01-09-exiv2-crash-001.tiff",
         "cve_2017_1000126_stack-oob-read.webp",
         "exiv2-bug1247.jpg",

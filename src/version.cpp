@@ -123,12 +123,11 @@ static std::vector<std::string> getLoadedLibraries() {
   // enumerate loaded libraries and determine path to executable
   HMODULE handles[200];
   DWORD cbNeeded;
-  if (EnumProcessModules(GetCurrentProcess(), handles, DWORD(std::size(handles)), &cbNeeded)) {
+  if (EnumProcessModules(GetCurrentProcess(), handles, static_cast<DWORD>(std::size(handles)), &cbNeeded)) {
     char szFilename[_MAX_PATH];
     for (DWORD h = 0; h < cbNeeded / sizeof(handles[0]); h++) {
-      GetModuleFileNameA(handles[h], szFilename, DWORD(std::size(szFilename)));
-      std::string path(szFilename);
-      pushPath(path, libs, paths);
+      GetModuleFileNameA(handles[h], szFilename, static_cast<DWORD>(std::size(szFilename)));
+      pushPath(szFilename, libs, paths);
     }
   }
 #elif defined(__APPLE__)
@@ -165,8 +164,7 @@ static std::vector<std::string> getLoadedLibraries() {
   char procsz[100];
   char pathsz[500];
   snprintf(procsz, sizeof(procsz), "/proc/%d/path/a.out", getpid());
-  int l = readlink(procsz, pathsz, sizeof(pathsz));
-  if (l > 0) {
+  if (auto l = readlink(procsz, pathsz, sizeof(pathsz) - 1); l > 0) {
     pathsz[l] = '\0';
     path.assign(pathsz);
     libs.push_back(path);
@@ -309,14 +307,11 @@ void Exiv2::dumpLibraryInfo(std::ostream& os, const std::vector<std::regex>& key
   int enable_bmff = 0;
   int enable_webready = 0;
   int enable_nls = 0;
+  int enable_video = 0;
   int use_curl = 0;
 
-#ifdef EXV_HAVE_INTTYPES_H
+#if __has_include(<inttypes.h>)
   have_inttypes = 1;
-#endif
-
-#ifdef EXV_HAVE_LIBINTL_H
-  have_libintl = 1;
 #endif
 
 #ifdef EXV_HAVE_LENSDATA
@@ -327,21 +322,23 @@ void Exiv2::dumpLibraryInfo(std::ostream& os, const std::vector<std::regex>& key
   have_iconv = 1;
 #endif
 
-#ifdef EXV_HAVE_LIBINTL_H
+#if __has_include(<libintl.h>)
   have_libintl = 1;
 #endif
 
-#ifdef EXV_HAVE_MEMORY_H
+#if __has_include(<memory.h>)
   have_memory = 1;
 #endif
 
-#ifdef EXV_HAVE_STDBOOL_H
+#if __has_include(<stdbool.h>)
   have_stdbool = 1;
 #endif
 
+#if __has_include(<stdint.h>)
   have_stdint = 1;
+#endif
 
-#ifdef EXV_HAVE_STDLIB_H
+#if __has_include(<stdlib.h>)
   have_stdlib = 1;
 #endif
 
@@ -349,31 +346,31 @@ void Exiv2::dumpLibraryInfo(std::ostream& os, const std::vector<std::regex>& key
   have_strerror_r = 1;
 #endif
 
-#ifdef EXV_HAVE_STRINGS_H
+#if __has_include(<strings.h>)
   have_strings = 1;
 #endif
 
-#ifdef EXV_HAVE_MMAP
+#if __has_include(<sys/mman.h>)
   have_mmap = 1;
 #endif
 
-#ifdef EXV_HAVE_MUNMAP
+#if __has_include(<sys/mman.h>)
   have_munmap = 1;
 #endif
 
-#ifdef EXV_HAVE_SYS_STAT_H
+#if __has_include(<sys/stat.h>)
   have_sys_stat = 1;
 #endif
 
-#ifdef EXV_HAVE_SYS_TYPES_H
+#if __has_include(<sys/types.h>)
   have_sys_types = 1;
 #endif
 
-#ifdef EXV_HAVE_UNISTD_H
+#if __has_include(<unistd.h>)
   have_unistd = 1;
 #endif
 
-#ifdef EXV_HAVE_SYS_MMAN_H
+#if __has_include(<sys/mman.h>)
   have_sys_mman = 1;
 #endif
 
@@ -393,22 +390,6 @@ void Exiv2::dumpLibraryInfo(std::ostream& os, const std::vector<std::regex>& key
   adobe_xmpsdk = EXV_ADOBE_XMPSDK;
 #endif
 
-#ifdef EXV_HAVE_BOOL
-  have_bool = 1;
-#endif
-
-#ifdef EXV_HAVE_STRINGS
-  have_strings = 1;
-#endif
-
-#ifdef EXV_SYS_TYPES
-  have_sys_types = 1;
-#endif
-
-#ifdef EXV_HAVE_UNISTD
-  have_unistd = 1;
-#endif
-
 #ifdef EXV_ENABLE_BMFF
   enable_bmff = 1;
 #endif
@@ -419,6 +400,10 @@ void Exiv2::dumpLibraryInfo(std::ostream& os, const std::vector<std::regex>& key
 
 #ifdef EXV_ENABLE_NLS
   enable_nls = 1;
+#endif
+
+#ifdef EXV_ENABLE_VIDEO
+  enable_video = 1;
 #endif
 
 #ifdef EXV_USE_CURL
@@ -445,7 +430,7 @@ void Exiv2::dumpLibraryInfo(std::ostream& os, const std::vector<std::regex>& key
 
 #ifdef EXV_USE_CURL
   std::string curl_protocols;
-  curl_version_info_data* vinfo = curl_version_info(CURLVERSION_NOW);
+  auto vinfo = curl_version_info(CURLVERSION_NOW);
   for (int i = 0; vinfo->protocols[i]; i++) {
     curl_protocols += vinfo->protocols[i];
     curl_protocols += " ";
@@ -487,6 +472,7 @@ void Exiv2::dumpLibraryInfo(std::ostream& os, const std::vector<std::regex>& key
   output(os, keys, "enable_bmff", enable_bmff);
   output(os, keys, "enable_webready", enable_webready);
   output(os, keys, "enable_nls", enable_nls);
+  output(os, keys, "enable_video", enable_video);
   output(os, keys, "use_curl", use_curl);
 
   output(os, keys, "config_path", Exiv2::Internal::getExiv2ConfigPath());

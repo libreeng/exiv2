@@ -14,6 +14,7 @@
 #include "makernote_int.hpp"
 #include "tags_int.hpp"
 #include "types.hpp"
+#include "utils.hpp"
 #include "value.hpp"
 
 // + standard includes
@@ -366,12 +367,12 @@ constexpr TagDetails canonModelId[] = {{0x00000412, "EOS M50 / Kiss M"},
                                        {0x80000417, "EOS Rebel SL2 / 200D / Kiss X9"},
                                        {0x80000421, "EOS R5"},
                                        {0x80000422, "EOS Rebel T100 / 4000D / 3000D"},
-                                       {0x80000424, "EOS R"},
+                                       {0x80000424, "EOS R / Ra"},
                                        {0x80000428, "EOS-1D X Mark III"},
                                        {0x80000432, "EOS Rebel T7 / 2000D / 1500D / Kiss X90"},
                                        {0x80000433, "EOS RP"},
                                        {0x80000435, "EOS Rebel T8i / 850D / Kiss X10i"},
-                                       {0x80000436, "EOS SL3 / 250D / Kiss X10"},
+                                       {0x80000436, "EOS Rebel SL3 / 250D / 200D Mark II / Kiss X10"},
                                        {0x80000437, "EOS 90D"},
                                        {0x80000450, "EOS R3"},
                                        {0x80000453, "EOS R6"},
@@ -379,8 +380,9 @@ constexpr TagDetails canonModelId[] = {{0x00000412, "EOS M50 / Kiss M"},
                                        {0x80000465, "EOS R10"},
                                        {0x80000467, "PowerShot ZOOM"},
                                        {0x80000468, "EOS M50 Mark II / Kiss M2"},
+                                       {0x80000480, "EOS R50"},
                                        {0x80000481, "EOS R6 Mark II"},
-                                       //{ (long int)tbd, "EOS Ra" },
+                                       {0x80000487, "EOS R8"},
                                        {0x80000520, "EOS D2000C"},
                                        {0x80000560, "EOS D6000C"}};
 
@@ -473,8 +475,8 @@ constexpr TagInfo CanonMakerNote::tagInfo_[] = {
      -1, printValue},
     {0x000e, "FileLength", N_("FileLength"), N_("FileLength"), IfdId::canonId, SectionId::makerTags, unsignedLong, -1,
      printValue},
-    {0x000f, "CustomFunctions", N_("Custom Functions"), N_("Custom Functions"), IfdId::canonId, SectionId::makerTags,
-     unsignedShort, -1, printValue},
+    {0x000f, "CustomFunctions2", N_("Custom Functions 2"), N_("Custom Functions 2"), IfdId::canonId,
+     SectionId::makerTags, unsignedShort, -1, printValue},
     {0x0010, "ModelID", N_("ModelID"), N_("Model ID"), IfdId::canonId, SectionId::makerTags, unsignedLong, -1,
      EXV_PRINT_TAG(canonModelId)},
     {0x0011, "MovieInfo", N_("MovieInfo"), N_("Movie info"), IfdId::canonId, SectionId::makerTags, unsignedShort, -1,
@@ -518,8 +520,6 @@ constexpr TagInfo CanonMakerNote::tagInfo_[] = {
      signedLong, -1, printValue},
     {0x0083, "OriginalDecisionDataOffset", N_("Original Decision Data Offset"), N_("Original decision data offset"),
      IfdId::canonId, SectionId::makerTags, signedLong, -1, printValue},
-    {0x00a4, "WhiteBalanceTable", N_("White Balance Table"), N_("White balance table"), IfdId::canonId,
-     SectionId::makerTags, unsignedShort, -1, printValue},
     // {0x0090, "CustomFunctions1D", N_("CustomFunctions1D"), N_("CustomFunctions1D"), IfdId::canonId,
     // SectionId::makerTags, unsignedShort, -1, printValue}, // ToDo {0x0091, "PersonalFunctions",
     // N_("PersonalFunctions"), N_("PersonalFunctions"), IfdId::canonId, SectionId::makerTags, unsignedShort, -1,
@@ -547,8 +547,8 @@ constexpr TagInfo CanonMakerNote::tagInfo_[] = {
      unsignedShort, -1, printValue},
     {0x00a3, "SharpnessFreqTable", N_("SharpnessFreqTable"), N_("SharpnessFreqTable"), IfdId::canonId,
      SectionId::makerTags, unsignedShort, -1, printValue},
-    {0x00a4, "WhiteBalanceTable", N_("SharpnessTable"), N_("SharpnessTable"), IfdId::canonId, SectionId::makerTags,
-     unsignedShort, -1, printValue},
+    {0x00a4, "WhiteBalanceTable", N_("White Balance Table"), N_("White balance table"), IfdId::canonId,
+     SectionId::makerTags, unsignedShort, -1, printValue},
     {0x00a9, "ColorBalance", N_("ColorBalance"), N_("ColorBalance"), IfdId::canonId, SectionId::makerTags,
      unsignedShort, -1, printValue},
     {0x00aa, "MeasuredColor", N_("Measured Color"), N_("Measured color"), IfdId::canonId, SectionId::makerTags,
@@ -1953,6 +1953,9 @@ constexpr TagDetails canonCsLensType[] = {{1, "Canon EF 50mm f/1.8"},
                                           {61182, "Canon RF 1200mm F8L IS USM + RF1.4x"},
                                           {61182, "Canon RF 1200mm F8L IS USM + RF2x"},
                                           {61182, "Canon RF 15-30mm F4.5-6.3 IS STM"},
+                                          {61182, "Canon RF 135mm F1.8 L IS USM"},
+                                          {61182, "Canon RF 24-50mm F4.5-6.3 IS STM"},
+                                          {61182, "Canon RF-S 55-210mm F5-7.1 IS STM"},
                                           {65535, "n/a"}};
 
 //! FlashActivity, tag 0x001c
@@ -2365,7 +2368,10 @@ constexpr TagDetails canonRFLensType[] = {{0, N_("n/a")},
                                           {298, "Canon RF 1200mm F8L IS USM"},
                                           {299, "Canon RF 1200mm F8L IS USM + RF1.4x"},
                                           {300, "Canon RF 1200mm F8L IS USM + RF2x"},
-                                          {302, "Canon RF 15-30mm F4.5-6.3 IS STM"}};
+                                          {302, "Canon RF 15-30mm F4.5-6.3 IS STM"},
+                                          {303, "Canon RF 135mm F1.8 L IS USM"},
+                                          {304, "Canon RF 24-50mm F4.5-6.3 IS STM"},
+                                          {305, "Canon RF-S 55-210mm F5-7.1 IS STM"}};
 
 // Canon File Info Tag
 constexpr TagInfo CanonMakerNote::tagInfoFi_[] = {
@@ -2526,8 +2532,8 @@ std::ostream& CanonMakerNote::printFiFileNumber(std::ostream& os, const Value& v
 
   // Ported from Exiftool
   std::string model = pos->toString();
-  if (model.find("20D") != std::string::npos || model.find("350D") != std::string::npos ||
-      model.substr(model.size() - 8, 8) == "REBEL XT" || model.find("Kiss Digital N") != std::string::npos) {
+  if (Internal::contains(model, "20D") || Internal::contains(model, "350D") ||
+      model.substr(model.size() - 8, 8) == "REBEL XT" || Internal::contains(model, "Kiss Digital N")) {
     uint32_t val = value.toUint32();
     uint32_t dn = (val & 0xffc0) >> 6;
     uint32_t fn = ((val >> 16) & 0xff) + ((val & 0x3f) << 8);
@@ -2535,9 +2541,8 @@ std::ostream& CanonMakerNote::printFiFileNumber(std::ostream& os, const Value& v
     os.flags(f);
     return os;
   }
-  if (model.find("30D") != std::string::npos || model.find("400D") != std::string::npos ||
-      model.find("REBEL XTi") != std::string::npos || model.find("Kiss Digital X") != std::string::npos ||
-      model.find("K236") != std::string::npos) {
+  if (Internal::contains(model, "30D") || Internal::contains(model, "400D") || Internal::contains(model, "REBEL XTi") ||
+      Internal::contains(model, "Kiss Digital X") || Internal::contains(model, "K236")) {
     uint32_t val = value.toUint32();
     uint32_t dn = (val & 0xffc00) >> 10;
     while (dn < 100)
@@ -2598,8 +2603,7 @@ std::ostream& CanonMakerNote::printCs0x0002(std::ostream& os, const Value& value
   if (value.typeId() != unsignedShort || value.count() == 0)
     return os << value;
 
-  const auto l = value.toInt64();
-  if (l == 0) {
+  if (auto l = value.toInt64(); l == 0) {
     os << "Off";
   } else {
     os << l / 10.0 << " s";
@@ -2828,8 +2832,7 @@ std::ostream& CanonMakerNote::printSi0x000e(std::ostream& os, const Value& value
   const auto l = value.toUint32();
   const auto num = (l & 0xf000U) >> 12;
   os << num << " focus points; ";
-  const auto used = l & 0x0fffU;
-  if (used == 0) {
+  if (auto used = l & 0x0fffU; used == 0) {
     os << "none";
   } else {
     EXV_PRINT_TAG_BITMASK(canonSiAFPointUsed)(os, value, pExifData);
@@ -2843,8 +2846,7 @@ std::ostream& CanonMakerNote::printSi0x0013(std::ostream& os, const Value& value
   if (value.typeId() != unsignedShort || value.count() == 0)
     return os << value;
 
-  const auto l = value.toInt64();
-  if (l == 0xffff) {
+  if (auto l = value.toInt64(); l == 0xffff) {
     os << "Infinite";
   } else {
     os << value.toInt64() / 100.0 << " m";
@@ -2905,8 +2907,7 @@ std::ostream& CanonMakerNote::printFiFocusDistance(std::ostream& os, const Value
   oss.copyfmt(os);
   os << std::fixed << std::setprecision(2);
 
-  const auto l = value.toInt64();
-  if (l == -1) {
+  if (auto l = value.toInt64(); l == -1) {
     os << "Infinite";
   } else {
     os << value.toInt64() / 100.0 << " m";

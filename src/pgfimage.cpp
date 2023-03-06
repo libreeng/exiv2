@@ -87,7 +87,7 @@ void PgfImage::readMetadata() {
 
   // And now, the most interesting, the user data byte array where metadata are stored as small image.
 
-  enforce(headerSize <= std::numeric_limits<size_t>::max() - 8, ErrorCode::kerCorruptedMetadata);
+  Internal::enforce(headerSize <= std::numeric_limits<size_t>::max() - 8, ErrorCode::kerCorruptedMetadata);
   size_t size = headerSize + 8 - io_->tell();
 
 #ifdef EXIV2_DEBUG_MESSAGES
@@ -203,10 +203,11 @@ void PgfImage::doWriteMetadata(BasicIo& outIo) {
   // Copy the rest of PGF image data.
 
   DataBuf buf(4096);
-  size_t readSize = 0;
-  while ((readSize = io_->read(buf.data(), buf.size()))) {
+  size_t readSize = io_->read(buf.data(), buf.size());
+  while (readSize != 0) {
     if (outIo.write(buf.c_data(), readSize) != readSize)
       throw Error(ErrorCode::kerImageWriteFailed);
+    readSize = io_->read(buf.data(), buf.size());
   }
   if (outIo.error())
     throw Error(ErrorCode::kerImageWriteFailed);
@@ -214,7 +215,7 @@ void PgfImage::doWriteMetadata(BasicIo& outIo) {
 }  // PgfImage::doWriteMetadata
 
 byte PgfImage::readPgfMagicNumber(BasicIo& iIo) {
-  byte b = iIo.getb();
+  auto b = static_cast<byte>(iIo.getb());
   if (iIo.error())
     throw Error(ErrorCode::kerFailedToReadImageData);
 
@@ -288,7 +289,7 @@ DataBuf PgfImage::readPgfHeaderStructure(BasicIo& iIo, uint32_t& width, uint32_t
 Image::UniquePtr newPgfInstance(BasicIo::UniquePtr io, bool create) {
   auto image = std::make_unique<PgfImage>(std::move(io), create);
   if (!image->good()) {
-    image.reset();
+    return nullptr;
   }
   return image;
 }

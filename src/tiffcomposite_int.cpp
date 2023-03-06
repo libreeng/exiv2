@@ -93,9 +93,6 @@ TiffBinaryArray::TiffBinaryArray(uint16_t tag, IfdId group, const ArraySet* arra
 }
 
 TiffBinaryElement::TiffBinaryElement(uint16_t tag, IfdId group) : TiffEntryBase(tag, group) {
-  elDef_.idx_ = 0;
-  elDef_.tiffType_ = ttUndefined;
-  elDef_.count_ = 0;
 }
 
 TiffDirectory::~TiffDirectory() {
@@ -139,25 +136,6 @@ TiffEntryBase::TiffEntryBase(const TiffEntryBase& rhs) :
     idx_(rhs.idx_),
     pValue_(rhs.pValue_ ? rhs.pValue_->clone().release() : nullptr),
     storage_(rhs.storage_) {
-}
-
-TiffDirectory::TiffDirectory(const TiffDirectory& rhs) : TiffComponent(rhs), hasNext_(rhs.hasNext_) {
-}
-
-TiffSubIfd::TiffSubIfd(const TiffSubIfd& rhs) : TiffEntryBase(rhs), newGroup_(rhs.newGroup_) {
-}
-
-TiffBinaryArray::TiffBinaryArray(const TiffBinaryArray& rhs) :
-    TiffEntryBase(rhs),
-    cfgSelFct_(rhs.cfgSelFct_),
-    arraySet_(rhs.arraySet_),
-    arrayCfg_(rhs.arrayCfg_),
-    arrayDef_(rhs.arrayDef_),
-    defSize_(rhs.defSize_),
-    setSize_(rhs.setSize_),
-    origData_(rhs.origData_),
-    origSize_(rhs.origSize_),
-    pRoot_(rhs.pRoot_) {
 }
 
 TiffComponent::UniquePtr TiffComponent::clone() const {
@@ -212,16 +190,16 @@ int TiffEntryBase::idx() const {
   return idx_;
 }
 
-void TiffEntryBase::setData(const std::shared_ptr<DataBuf>& buf) {
-  storage_ = buf;
-  pData_ = buf->data();
-  size_ = buf->size();
+void TiffEntryBase::setData(std::shared_ptr<DataBuf> buf) {
+  storage_ = std::move(buf);
+  pData_ = storage_->data();
+  size_ = storage_->size();
 }
 
-void TiffEntryBase::setData(byte* pData, size_t size, const std::shared_ptr<DataBuf>& storage) {
+void TiffEntryBase::setData(byte* pData, size_t size, std::shared_ptr<DataBuf> storage) {
   pData_ = pData;
   size_ = size;
-  storage_ = storage;
+  storage_ = std::move(storage);
   if (!pData_)
     size_ = 0;
 }
@@ -231,7 +209,8 @@ void TiffEntryBase::updateValue(Value::UniquePtr value, ByteOrder byteOrder) {
     return;
   size_t newSize = value->size();
   if (newSize > size_) {
-    setData(std::make_shared<DataBuf>(newSize));
+    auto d = std::make_shared<DataBuf>(newSize);
+    setData(std::move(d));
   }
   if (pData_) {
     memset(pData_, 0x0, size_);
@@ -425,13 +404,14 @@ bool TiffBinaryArray::updOrigDataBuf(const byte* pData, size_t size) {
 
 size_t TiffBinaryArray::addElement(size_t idx, const ArrayDef& def) {
   auto tag = static_cast<uint16_t>(idx / cfg()->tagStep());
-  size_t sz = std::min(def.size(tag, cfg()->group_), TiffEntryBase::doSize() - idx);
+  auto sz = std::min<size_t>(def.size(tag, cfg()->group_), TiffEntryBase::doSize() - idx);
   auto tc = TiffCreator::create(tag, cfg()->group_);
   auto tp = dynamic_cast<TiffBinaryElement*>(tc.get());
   // The assertion typically fails if a component is not configured in
   // the TIFF structure table (TiffCreator::tiffTreeStruct_)
   tp->setStart(pData() + idx);
-  tp->setData(const_cast<byte*>(pData() + idx), sz, storage());
+  auto s = storage();
+  tp->setData(const_cast<byte*>(pData() + idx), sz, std::move(s));
   tp->setElDef(def);
   tp->setElByteOrder(cfg()->byteOrder_);
   addChild(std::move(tc));
@@ -1378,7 +1358,7 @@ size_t TiffBinaryArray::doSize() const {
   if (cfg()->hasFillers_ && def()) {
     const ArrayDef* lastDef = def() + defSize() - 1;
     auto lastTag = static_cast<uint16_t>(lastDef->idx_ / cfg()->tagStep());
-    idx = std::max(idx, lastDef->idx_ + lastDef->size(lastTag, cfg()->group_));
+    idx = std::max<size_t>(idx, lastDef->idx_ + lastDef->size(lastTag, cfg()->group_));
   }
   return idx;
 
@@ -1476,7 +1456,7 @@ static const TagInfo* findTagInfo(uint16_t tag, IfdId group) {
   const TagInfo* result = nullptr;
   const TagInfo* tags = [=] {
     if (group == IfdId::gpsId)
-      return group == IfdId::exifId ? Internal::exifTagList() : Internal::gpsTagList();
+      return Internal::gpsTagList();
     return group == IfdId::exifId ? Internal::exifTagList() : nullptr;
   }();
   if (tags) {

@@ -408,8 +408,7 @@ TypeId IptcDataSets::dataSetType(uint16_t number, uint16_t recordId) {
 }
 
 std::string IptcDataSets::dataSetName(uint16_t number, uint16_t recordId) {
-  int idx = dataSetIdx(number, recordId);
-  if (idx != -1)
+  if (int idx = dataSetIdx(number, recordId); idx != -1)
     return records_[recordId][idx].name_;
 
   std::ostringstream os;
@@ -447,8 +446,7 @@ bool IptcDataSets::dataSetRepeatable(uint16_t number, uint16_t recordId) {
 
 uint16_t IptcDataSets::dataSet(const std::string& dataSetName, uint16_t recordId) {
   uint16_t dataSet = 0;
-  int idx = dataSetIdx(dataSetName, recordId);
-  if (idx != -1) {
+  if (int idx = dataSetIdx(dataSetName, recordId); idx != -1) {
     // dataSetIdx checks the range of recordId
     dataSet = records_[recordId][idx].number_;
   } else {
@@ -500,15 +498,12 @@ void IptcDataSets::dataSetList(std::ostream& os) {
   }
 }
 
-IptcKey::IptcKey(std::string key) : key_(std::move(key)) {
+IptcKey::IptcKey(std::string key) : tag_(0), record_(0), key_(std::move(key)) {
   decomposeKey();
 }
 
 IptcKey::IptcKey(uint16_t tag, uint16_t record) : tag_(tag), record_(record) {
   makeKey();
-}
-
-IptcKey::IptcKey(const IptcKey& rhs) : Key(), tag_(rhs.tag_), record_(rhs.record_), key_(rhs.key_) {
 }
 
 std::string IptcKey::key() const {
@@ -558,8 +553,7 @@ IptcKey* IptcKey::clone_() const {
 void IptcKey::decomposeKey() {
   // Check that the key has the expected format with RE
   static const std::regex re(R"((\w+)(\.\w+){2})");
-  std::smatch sm;
-  if (!std::regex_match(key_, sm, re)) {
+  if (std::smatch sm; !std::regex_match(key_, sm, re)) {
     throw Error(ErrorCode::kerInvalidKey, key_);
   }
 

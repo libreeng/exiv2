@@ -740,7 +740,7 @@ void Converter::cnvExifDate(const char* from, const char* to) {
   }
 
   if (subsec.size() > 10)
-    subsec = subsec.substr(0, 10);
+    subsec.resize(10);
   snprintf(buf, sizeof(buf), "%4d-%02d-%02dT%02d:%02d:%02d%s", year, month, day, hour, min, sec, subsec.c_str());
   buf[sizeof(buf) - 1] = 0;
 
@@ -864,8 +864,7 @@ void Converter::cnvXmpValue(const char* from, const char* to) {
   }
   // Todo: Escape non-ASCII characters in XMP text values
   ExifKey key(to);
-  Exifdatum ed(key);
-  if (0 == ed.setValue(value)) {
+  if (auto ed = Exifdatum(key); ed.setValue(value) == 0) {
     exifData_->add(ed);
   }
   if (erase_)
@@ -1141,11 +1140,11 @@ void Converter::cnvXmpGPSCoord(const char* from, const char* to) {
   double deg = 0.0;
   double min = 0.0;
   double sec = 0.0;
-  char ref = value[value.length() - 1];
+  char ref = value.back();
   char sep1 = '\0';
   char sep2 = '\0';
 
-  value.erase(value.length() - 1);
+  value.pop_back();
 
   std::istringstream in(value);
 
@@ -1439,7 +1438,7 @@ bool swapBytes(std::string& str) {
 bool mb2wc(UINT cp, std::string& str) {
   if (str.empty())
     return true;
-  int len = MultiByteToWideChar(cp, 0, str.c_str(), (int)str.size(), 0, 0);
+  int len = MultiByteToWideChar(cp, 0, str.c_str(), static_cast<int>(str.size()), nullptr, 0);
   if (len == 0) {
 #ifdef EXIV2_DEBUG_MESSAGES
     EXV_DEBUG << "mb2wc: Failed to determine required size of output buffer.\n";
@@ -1448,7 +1447,8 @@ bool mb2wc(UINT cp, std::string& str) {
   }
   std::vector<std::string::value_type> out;
   out.resize(len * 2);
-  int ret = MultiByteToWideChar(cp, 0, str.c_str(), (int)str.size(), (LPWSTR)&out[0], len * 2);
+  int ret = MultiByteToWideChar(cp, 0, str.c_str(), static_cast<int>(str.size()), reinterpret_cast<LPWSTR>(out.data()),
+                                len * 2);
   if (ret == 0) {
 #ifdef EXIV2_DEBUG_MESSAGES
     EXV_DEBUG << "mb2wc: Failed to convert the input string to a wide character string.\n";
@@ -1468,7 +1468,8 @@ bool wc2mb(UINT cp, std::string& str) {
 #endif
     return false;
   }
-  int len = WideCharToMultiByte(cp, 0, (LPCWSTR)str.data(), (int)str.size() / 2, 0, 0, 0, 0);
+  int len = WideCharToMultiByte(cp, 0, reinterpret_cast<LPCWSTR>(str.data()), static_cast<int>(str.size()) / 2, nullptr,
+                                0, nullptr, nullptr);
   if (len == 0) {
 #ifdef EXIV2_DEBUG_MESSAGES
     EXV_DEBUG << "wc2mb: Failed to determine required size of output buffer.\n";
@@ -1477,7 +1478,8 @@ bool wc2mb(UINT cp, std::string& str) {
   }
   std::vector<std::string::value_type> out;
   out.resize(len);
-  int ret = WideCharToMultiByte(cp, 0, (LPCWSTR)str.data(), (int)str.size() / 2, (LPSTR)&out[0], len, 0, 0);
+  int ret = WideCharToMultiByte(cp, 0, reinterpret_cast<LPCWSTR>(str.data()), static_cast<int>(str.size()) / 2,
+                                static_cast<LPSTR>(out.data()), len, nullptr, nullptr);
   if (ret == 0) {
 #ifdef EXIV2_DEBUG_MESSAGES
     EXV_DEBUG << "wc2mb: Failed to convert the input string to a multi byte string.\n";
@@ -1550,8 +1552,8 @@ const ConvFctList convFctList[] = {
 
 [[maybe_unused]] bool convertStringCharsetWindows(std::string& str, const char* from, const char* to) {
   bool ret = false;
-  const ConvFctList* p = find(convFctList, std::pair(from, to));
   std::string tmpstr = str;
+  auto p = Exiv2::find(convFctList, std::pair(from, to));
   if (p)
     ret = p->convFct_(tmpstr);
 #ifndef SUPPRESS_WARNINGS
@@ -1573,7 +1575,7 @@ bool convertStringCharsetIconv(std::string& str, const char* from, const char* t
   bool ret = true;
   iconv_t cd;
   cd = iconv_open(to, from);
-  if (cd == (iconv_t)(-1)) {
+  if (cd == iconv_t(-1)) {
 #ifndef SUPPRESS_WARNINGS
     EXV_WARNING << "iconv_open: " << strError() << "\n";
 #endif
@@ -1583,7 +1585,7 @@ bool convertStringCharsetIconv(std::string& str, const char* from, const char* t
 #ifdef WINICONV_CONST
   auto inptr = (WINICONV_CONST char*)(str.c_str());
 #else
-  auto inptr = const_cast<char*>(str.c_str());
+  auto inptr = (EXV_ICONV_CONST char*)(str.c_str());
 #endif
   size_t inbytesleft = str.length();
   while (inbytesleft) {

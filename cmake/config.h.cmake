@@ -9,14 +9,17 @@
 // Define if you require webready support.
 #cmakedefine EXV_ENABLE_WEBREADY
 
-// Define if you have the <libintl.h> header file.
-#cmakedefine EXV_HAVE_LIBINTL_H
-
 // Define if you want translation of program messages to the user's native language
 #cmakedefine EXV_ENABLE_NLS
 
+// Define if you want to enable the decoding of video metadata
+#cmakedefine EXV_ENABLE_VIDEO
+
 // Define if you want BMFF support.
 #cmakedefine EXV_ENABLE_BMFF
+
+// Define if you want to use the inih library.
+#cmakedefine EXV_ENABLE_INIH
 
 // Define if you have the strerror_r function.
 #cmakedefine EXV_HAVE_STRERROR_R
@@ -31,21 +34,6 @@
 #else
 #define EXV_ICONV_CONST
 #endif
-
-// Define if you have the mmap function.
-#cmakedefine EXV_HAVE_MMAP
-
-// Define if you have the munmap function.
-#cmakedefine EXV_HAVE_MUNMAP
-
-/* Define if you have the <libproc.h> header file. */
-#cmakedefine EXV_HAVE_LIBPROC_H
-
-/* Define if you have the <unistd.h> header file. */
-#cmakedefine EXV_HAVE_UNISTD_H
-
-// Define if you have the <sys/mman.h> header file.
-#cmakedefine EXV_HAVE_SYS_MMAN_H
 
 // Define if you have the zlib library.
 #cmakedefine EXV_HAVE_LIBZ

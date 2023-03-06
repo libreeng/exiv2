@@ -39,7 +39,6 @@ class EXIV2API Value {
   //@{
   //! Constructor, taking a type id to initialize the base class with
   explicit Value(TypeId typeId);
-  Value(const Value&) = default;
   //! Virtual destructor.
   virtual ~Value() = default;
   //@}
@@ -223,6 +222,7 @@ class EXIV2API Value {
   static UniquePtr create(TypeId typeId);
 
  protected:
+  Value(const Value&) = default;
   /*!
     @brief Assignment operator. Protected so that it can only be used
            by subclasses but not directly.
@@ -252,8 +252,6 @@ class EXIV2API DataValue : public Value {
   explicit DataValue(TypeId typeId = undefined);
 
   DataValue(const byte* buf, size_t len, ByteOrder byteOrder = invalidByteOrder, TypeId typeId = undefined);
-
-  ~DataValue() override = default;
 
   //! @name Manipulators
   //@{
@@ -324,10 +322,6 @@ class EXIV2API StringValueBase : public Value {
   explicit StringValueBase(TypeId typeId);
   //! Constructor for subclasses
   StringValueBase(TypeId typeId, const std::string& buf);
-  //! Copy constructor
-  StringValueBase(const StringValueBase&) = default;
-  //! Virtual destructor.
-  ~StringValueBase() override = default;
   //@}
 
   //! @name Manipulators
@@ -366,8 +360,6 @@ class EXIV2API StringValueBase : public Value {
   //@}
 
  protected:
-  //! Assignment operator.
-  StringValueBase& operator=(const StringValueBase&);
   //! Internal virtual copy constructor.
   StringValueBase* clone_() const override = 0;
 
@@ -395,8 +387,6 @@ class EXIV2API StringValue : public StringValueBase {
   StringValue();
   //! Constructor
   explicit StringValue(const std::string& buf);
-  //! Virtual destructor.
-  ~StringValue() override = default;
   //@}
 
   //! @name Accessors
@@ -429,8 +419,6 @@ class EXIV2API AsciiValue : public StringValueBase {
   AsciiValue();
   //! Constructor
   explicit AsciiValue(const std::string& buf);
-  //! Virtual destructor.
-  ~AsciiValue() override = default;
   //@}
 
   //! @name Manipulators
@@ -477,8 +465,6 @@ class EXIV2API CommentValue : public StringValueBase {
   enum CharsetId { ascii, jis, unicode, undefined, invalidCharsetId, lastCharsetId };
   //! Information pertaining to the defined character sets
   struct CharsetTable {
-    //! Constructor
-    constexpr CharsetTable(CharsetId charsetId, const char* name, const char* code);
     CharsetId charsetId_;  //!< Charset id
     const char* name_;     //!< Name of the charset
     const char* code_;     //!< Code of the charset
@@ -487,12 +473,6 @@ class EXIV2API CommentValue : public StringValueBase {
   //! Charset information lookup functions. Implemented as a static class.
   class EXIV2API CharsetInfo {
    public:
-    //! Prevent copy-construction: not implemented.
-    CharsetInfo(const CharsetInfo&) = delete;
-    //! Prevent assignment: not implemented.
-    CharsetInfo& operator=(const CharsetInfo&) = delete;
-    ~CharsetInfo() = delete;
-
     //! Return the name for a charset id
     static const char* name(CharsetId charsetId);
     //! Return the code for a charset id
@@ -515,8 +495,6 @@ class EXIV2API CommentValue : public StringValueBase {
   CommentValue();
   //! Constructor, uses read(const std::string& comment)
   explicit CommentValue(const std::string& comment);
-  //! Virtual destructor.
-  ~CommentValue() override = default;
   //@}
 
   //! @name Manipulators
@@ -933,15 +911,13 @@ class EXIV2API DateValue : public Value {
   DateValue();
   //! Constructor
   DateValue(int32_t year, int32_t month, int32_t day);
-  //! Virtual destructor.
-  ~DateValue() override = default;
   //@}
 
   //! Simple Date helper structure
   struct EXIV2API Date {
-    int32_t year{0};   //!< Year
-    int32_t month{0};  //!< Month
-    int32_t day{0};    //!< Day
+    int32_t year;   //!< Year
+    int32_t month;  //!< Month
+    int32_t day;    //!< Day
   };
 
   //! @name Manipulators
@@ -1026,20 +1002,15 @@ class EXIV2API TimeValue : public Value {
   TimeValue();
   //! Constructor
   TimeValue(int32_t hour, int32_t minute, int32_t second = 0, int32_t tzHour = 0, int32_t tzMinute = 0);
-
-  //! Virtual destructor.
-  ~TimeValue() override = default;
   //@}
 
   //! Simple Time helper structure
   struct Time {
-    Time() = default;
-
-    int32_t hour{0};      //!< Hour
-    int32_t minute{0};    //!< Minute
-    int32_t second{0};    //!< Second
-    int32_t tzHour{0};    //!< Hours ahead or behind UTC
-    int32_t tzMinute{0};  //!< Minutes ahead or behind UTC
+    int32_t hour;      //!< Hour
+    int32_t minute;    //!< Minute
+    int32_t second;    //!< Second
+    int32_t tzHour;    //!< Hours ahead or behind UTC
+    int32_t tzMinute;  //!< Minutes ahead or behind UTC
   };
 
   //! @name Manipulators
@@ -1270,16 +1241,28 @@ class ValueType : public Value {
     }
 
     // Check for integer overflow.
+#ifdef __cpp_if_constexpr
+    if constexpr (std::is_signed_v<I> == std::is_signed_v<decltype(a)>) {
+#else
     if (std::is_signed<I>::value == std::is_signed<decltype(a)>::value) {
+#endif
       // conversion does not change sign
       const auto imin = std::numeric_limits<I>::min();
       const auto imax = std::numeric_limits<I>::max();
       if (imax < b || a < imin || imax < a) {
         return 0;
       }
+#ifdef __cpp_if_constexpr
+    } else if constexpr (std::is_signed_v<I>) {
+#else
     } else if (std::is_signed<I>::value) {
+#endif
       // conversion is from unsigned to signed
-      const auto imax = typename std::make_unsigned<I>::type(std::numeric_limits<I>::max());
+#if __cplusplus >= 201402L || _MSVC_LANG >= 201402L
+      const auto imax = static_cast<std::make_unsigned_t<I>>(std::numeric_limits<I>::max());
+#else
+      const auto imax = static_cast<typename std::make_unsigned<I>::type>(std::numeric_limits<I>::max());
+#endif
       if (imax < b || imax < a) {
         return 0;
       }
@@ -1290,8 +1273,13 @@ class ValueType : public Value {
         return 0;
       }
       // Inputs are not negative so convert them to unsigned.
-      const auto a_u = typename std::make_unsigned<decltype(a)>::type(a);
-      const auto b_u = typename std::make_unsigned<decltype(b)>::type(b);
+#if __cplusplus >= 201402L || _MSVC_LANG >= 201402L
+      const auto a_u = static_cast<std::make_unsigned_t<decltype(a)>>(a);
+      const auto b_u = static_cast<std::make_unsigned_t<decltype(b)>>(b);
+#else
+      const auto a_u = static_cast<typename std::make_unsigned<decltype(a)>::type>(a);
+      const auto b_u = static_cast<typename std::make_unsigned<decltype(b)>::type>(b);
+#endif
       if (imax < b_u || imax < a_u) {
         return 0;
       }

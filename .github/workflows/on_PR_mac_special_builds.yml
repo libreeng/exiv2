@@ -21,14 +21,8 @@ jobs:
       - name: install dependencies
         run: |
           brew install ninja
-          pushd /tmp
-          curl -LO https://github.com/google/googletest/archive/release-1.8.0.tar.gz
-          tar xzf   release-1.8.0.tar.gz
-          mkdir -p  googletest-release-1.8.0/build
-          pushd     googletest-release-1.8.0/build
-          cmake .. ; make ; make install
-          popd
-          popd
+          brew install inih
+          brew install googletest
 
       - name: Build
         run: |

@@ -22,7 +22,10 @@ class RotationMap {
 
  private:
   //! Helper structure for the mapping list
-  using OmList = std::pair<uint16_t, int32_t>;
+  using OmList = struct {
+    uint16_t orientation;
+    int32_t degrees;
+  };
   // DATA
   static const OmList omList_[];
 };  // class RotationMap
@@ -37,7 +40,7 @@ constexpr RotationMap::OmList RotationMap::omList_[] = {
 
 uint16_t RotationMap::orientation(int32_t degrees) {
   uint16_t o = 1;
-  for (auto&& [deg, orient] : omList_) {
+  for (auto&& [orient, deg] : omList_) {
     if (deg == degrees) {
       o = orient;
       break;
@@ -48,7 +51,7 @@ uint16_t RotationMap::orientation(int32_t degrees) {
 
 int32_t RotationMap::degrees(uint16_t orientation) {
   int32_t d = 0;
-  for (auto&& [deg, orient] : omList_) {
+  for (auto&& [orient, deg] : omList_) {
     if (orient == orientation) {
       d = deg;
       break;
@@ -540,13 +543,12 @@ CiffComponent* CiffDirectory::doAdd(CrwDirs& crwDirs, uint16_t crwTagId) {
     auto dir = crwDirs.top();
     crwDirs.pop();
     // Find the directory
-    auto it =
-        std::find_if(components_.begin(), components_.end(), [=](const auto& c) { return c->tag() == dir.first; });
+    auto it = std::find_if(components_.begin(), components_.end(), [=](const auto& c) { return c->tag() == dir.dir; });
     if (it != components_.end())
       cc_ = *it;
     if (!cc_) {
       // Directory doesn't exist yet, add it
-      m_ = std::make_unique<CiffDirectory>(dir.first, dir.second);
+      m_ = std::make_unique<CiffDirectory>(dir.dir, dir.parent);
       cc_ = m_.get();
       add(std::move(m_));
     }
@@ -590,8 +592,7 @@ void CiffDirectory::doRemove(CrwDirs& crwDirs, uint16_t crwTagId) {
     auto dir = crwDirs.top();
     crwDirs.pop();
     // Find the directory
-    auto it =
-        std::find_if(components_.begin(), components_.end(), [=](const auto& c) { return c->tag() == dir.first; });
+    auto it = std::find_if(components_.begin(), components_.end(), [=](const auto& c) { return c->tag() == dir.dir; });
     if (it != components_.end()) {
       // Recursive call to next lower level directory
       (*it)->remove(crwDirs, crwTagId);
@@ -740,7 +741,12 @@ void CrwMap::decode0x180e(const CiffComponent& ciffComponent, const CrwMapping* 
   ULongValue v;
   v.read(ciffComponent.pData(), 8, byteOrder);
   time_t t = v.value_.at(0);
-  auto tm = std::localtime(&t);
+  struct tm r;
+#ifdef _WIN32
+  auto tm = localtime_s(&r, &t) ? nullptr : &r;
+#else
+  auto tm = localtime_r(&t, &r);
+#endif
   if (tm) {
     const size_t m = 20;
     char s[m];
@@ -923,8 +929,7 @@ void CrwMap::encodeArray(const Image& image, const CrwMapping* pCrwMapping, Ciff
 void CrwMap::encode0x180e(const Image& image, const CrwMapping* pCrwMapping, CiffHeader* pHead) {
   time_t t = 0;
   const ExifKey key(pCrwMapping->tag_, Internal::groupName(pCrwMapping->ifdId_));
-  const auto ed = image.exifData().findKey(key);
-  if (ed != image.exifData().end()) {
+  if (auto ed = image.exifData().findKey(key); ed != image.exifData().end()) {
     struct tm tm = {};
     if (exifTime(ed->toString().c_str(), &tm) == 0) {
       t = ::mktime(&tm);

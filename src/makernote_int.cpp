@@ -7,7 +7,6 @@
 // included header files
 #include "config.h"
 
-#include "ini.hpp"
 #include "makernote_int.hpp"
 #include "safe_op.hpp"
 #include "tiffcomposite_int.hpp"
@@ -17,10 +16,15 @@
 
 // + standard includes
 #include <array>
-#include <filesystem>
 #include <iostream>
 
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
 
 #if !defined(_WIN32)
 #include <pwd.h>
@@ -31,7 +35,10 @@ namespace fs = std::filesystem;
 #define CSIDL_PROFILE 40
 #endif
 #include <process.h>
+#endif
 
+#ifdef EXV_ENABLE_INIH
+#include <INIReader.h>
 #endif
 
 // *****************************************************************************
@@ -78,13 +85,16 @@ std::string getExiv2ConfigPath() {
   return (currentPath / inifile).string();
 }
 
-std::string readExiv2Config(const std::string& section, const std::string& value, const std::string& def) {
+std::string readExiv2Config([[maybe_unused]] const std::string& section, [[maybe_unused]] const std::string& value,
+                            const std::string& def) {
   std::string result = def;
 
-  Exiv2::INIReader reader(Exiv2::Internal::getExiv2ConfigPath());
+#ifdef EXV_ENABLE_INIH
+  INIReader reader(Exiv2::Internal::getExiv2ConfigPath());
   if (reader.ParseError() == 0) {
     result = reader.Get(section, value, def);
   }
+#endif
 
   return result;
 }
@@ -132,16 +142,16 @@ bool TiffMnRegistry::operator==(IfdId key) const {
 
 TiffComponent* TiffMnCreator::create(uint16_t tag, IfdId group, const std::string& make, const byte* pData, size_t size,
                                      ByteOrder byteOrder) {
-  auto tmr = std::find(std::begin(registry_), std::end(registry_), make);
-  if (tmr != std::end(registry_)) {
-    return tmr->newMnFct_(tag, group, tmr->mnGroup_, pData, size, byteOrder);
+  auto tmr = Exiv2::find(registry_, make);
+  if (!tmr) {
+    return nullptr;
   }
-  return nullptr;
+  return tmr->newMnFct_(tag, group, tmr->mnGroup_, pData, size, byteOrder);
 }  // TiffMnCreator::create
 
 TiffComponent* TiffMnCreator::create(uint16_t tag, IfdId group, IfdId mnGroup) {
-  auto tmr = std::find(std::begin(registry_), std::end(registry_), mnGroup);
-  if (tmr != std::end(registry_)) {
+  auto tmr = Exiv2::find(registry_, mnGroup);
+  if (tmr) {
     if (tmr->newMnFct2_) {
       return tmr->newMnFct2_(tag, group, mnGroup);
     }
@@ -832,9 +842,6 @@ TiffComponent* newCasio2Mn2(uint16_t tag, IfdId group, IfdId mnGroup) {
 struct NikonArrayIdx {
   //! Key for comparisons
   struct Key {
-    //! Constructor
-    Key(uint16_t tag, const char* ver, size_t size) : tag_(tag), ver_(ver), size_(size) {
-    }
     uint16_t tag_;     //!< Tag number
     const char* ver_;  //!< Version string
     size_t size_;      //!< Size of the data (not the version string)
@@ -854,44 +861,55 @@ struct NikonArrayIdx {
 #define NA ((uint32_t)-1)
 
 //! Nikon binary array version lookup table
-constexpr auto nikonArrayIdx = std::array{
+constexpr NikonArrayIdx nikonArrayIdx[] = {
     // NikonSi
-    NikonArrayIdx{0x0091, "0208", 0, 0, 4},     // D80
-    NikonArrayIdx{0x0091, "0209", 0, 1, 4},     // D40
-    NikonArrayIdx{0x0091, "0210", 5291, 2, 4},  // D300
-    NikonArrayIdx{0x0091, "0210", 5303, 3, 4},  // D300, firmware version 1.10
-    NikonArrayIdx{0x0091, "02", 0, 4, 4},       // Other v2.* (encrypted)
-    NikonArrayIdx{0x0091, "01", 0, 5, NA},      // Other v1.* (not encrypted)
+    {0x0091, "0208", 0, 0, 4},     // D80
+    {0x0091, "0209", 0, 1, 4},     // D40
+    {0x0091, "0210", 5291, 2, 4},  // D300
+    {0x0091, "0210", 5303, 3, 4},  // D300, firmware version 1.10
+    {0x0091, "02", 0, 4, 4},       // Other v2.* (encrypted)
+    {0x0091, "01", 0, 5, NA},      // Other v1.* (not encrypted)
     // NikonCb
-    NikonArrayIdx{0x0097, "0100", 0, 0, NA}, NikonArrayIdx{0x0097, "0102", 0, 1, NA},
-    NikonArrayIdx{0x0097, "0103", 0, 4, NA}, NikonArrayIdx{0x0097, "0205", 0, 2, 4},
-    NikonArrayIdx{0x0097, "0209", 0, 5, 284}, NikonArrayIdx{0x0097, "0212", 0, 5, 284},
-    NikonArrayIdx{0x0097, "0214", 0, 5, 284}, NikonArrayIdx{0x0097, "02", 0, 3, 284},
+    {0x0097, "0100", 0, 0, NA},
+    {0x0097, "0102", 0, 1, NA},
+    {0x0097, "0103", 0, 4, NA},
+    {0x0097, "0205", 0, 2, 4},
+    {0x0097, "0209", 0, 5, 284},
+    {0x0097, "0212", 0, 5, 284},
+    {0x0097, "0214", 0, 5, 284},
+    {0x0097, "02", 0, 3, 284},
     // NikonLd
-    NikonArrayIdx{0x0098, "0100", 0, 0, NA}, NikonArrayIdx{0x0098, "0101", 0, 1, NA},
-    NikonArrayIdx{0x0098, "0201", 0, 1, 4}, NikonArrayIdx{0x0098, "0202", 0, 1, 4},
-    NikonArrayIdx{0x0098, "0203", 0, 1, 4}, NikonArrayIdx{0x0098, "0204", 0, 2, 4},
-    NikonArrayIdx{0x0098, "0800", 0, 3, 4},  // for e.g. Z6/7
-    NikonArrayIdx{0x0098, "0801", 0, 3, 4},  // for e.g. Z6/7
-    NikonArrayIdx{0x0098, "0802", 0, 3, 4},  // for e.g. Z9
+    {0x0098, "0100", 0, 0, NA},
+    {0x0098, "0101", 0, 1, NA},
+    {0x0098, "0201", 0, 1, 4},
+    {0x0098, "0202", 0, 1, 4},
+    {0x0098, "0203", 0, 1, 4},
+    {0x0098, "0204", 0, 2, 4},
+    {0x0098, "0800", 0, 3, 4},  // for e.g. Z6/7
+    {0x0098, "0801", 0, 3, 4},  // for e.g. Z6/7
+    {0x0098, "0802", 0, 3, 4},  // for e.g. Z9
     // NikonFl
-    NikonArrayIdx{0x00a8, "0100", 0, 0, NA}, NikonArrayIdx{0x00a8, "0101", 0, 0, NA},
-    NikonArrayIdx{0x00a8, "0102", 0, 1, NA}, NikonArrayIdx{0x00a8, "0103", 0, 2, NA},
-    NikonArrayIdx{0x00a8, "0104", 0, 2, NA}, NikonArrayIdx{0x00a8, "0105", 0, 2, NA},
-    NikonArrayIdx{0x00a8, "0106", 0, 3, NA}, NikonArrayIdx{0x00a8, "0107", 0, 4, NA},
-    NikonArrayIdx{0x00a8, "0108", 0, 4, NA},
+    {0x00a8, "0100", 0, 0, NA},
+    {0x00a8, "0101", 0, 0, NA},
+    {0x00a8, "0102", 0, 1, NA},
+    {0x00a8, "0103", 0, 2, NA},
+    {0x00a8, "0104", 0, 2, NA},
+    {0x00a8, "0105", 0, 2, NA},
+    {0x00a8, "0106", 0, 3, NA},
+    {0x00a8, "0107", 0, 4, NA},
+    {0x00a8, "0108", 0, 4, NA},
     // NikonAf
-    NikonArrayIdx{0x00b7, "0100", 30, 0, NA},  // These sizes have been found in tiff headers of MN
-    NikonArrayIdx{0x00b7, "0101", 84, 1, NA},  // tag 0xb7 in sample image metadata for each version
+    {0x00b7, "0100", 30, 0, NA},  // These sizes have been found in tiff headers of MN
+    {0x00b7, "0101", 84, 1, NA},  // tag 0xb7 in sample image metadata for each version
 };
 
 int nikonSelector(uint16_t tag, const byte* pData, size_t size, TiffComponent* /*pRoot*/) {
   if (size < 4)
     return -1;
 
-  auto ix = NikonArrayIdx::Key(tag, reinterpret_cast<const char*>(pData), size);
-  auto it = std::find(nikonArrayIdx.begin(), nikonArrayIdx.end(), ix);
-  if (it == nikonArrayIdx.end())
+  auto ix = NikonArrayIdx::Key{tag, reinterpret_cast<const char*>(pData), size};
+  auto it = Exiv2::find(nikonArrayIdx, ix);
+  if (!it)
     return -1;
 
   return it->idx_;
@@ -902,9 +920,8 @@ DataBuf nikonCrypt(uint16_t tag, const byte* pData, size_t size, TiffComponent* 
 
   if (size < 4)
     return buf;
-  auto nci = std::find(nikonArrayIdx.begin(), nikonArrayIdx.end(),
-                       NikonArrayIdx::Key(tag, reinterpret_cast<const char*>(pData), size));
-  if (nci == nikonArrayIdx.end() || nci->start_ == NA || size <= nci->start_)
+  auto nci = Exiv2::find(nikonArrayIdx, NikonArrayIdx::Key{tag, reinterpret_cast<const char*>(pData), size});
+  if (!nci || nci->start_ == NA || size <= nci->start_)
     return buf;
 
   // Find Exif.Nikon3.ShutterCount
@@ -927,7 +944,7 @@ DataBuf nikonCrypt(uint16_t tag, const byte* pData, size_t size, TiffComponent* 
     std::string model = getExifModel(pRoot);
     if (model.empty())
       return buf;
-    if (model.find("D50") != std::string::npos) {
+    if (Internal::contains(model, "D50")) {
       serial = 0x22;
     } else {
       serial = 0x60;
@@ -944,18 +961,18 @@ int sonyCsSelector(uint16_t /*tag*/, const byte* /*pData*/, size_t /*size*/, Tif
   if (model.empty())
     return -1;
   int idx = 0;
-  if (model.find("DSLR-A330") != std::string::npos || model.find("DSLR-A380") != std::string::npos) {
+  if (Internal::contains(model, "DSLR-A330") || Internal::contains(model, "DSLR-A380")) {
     idx = 1;
   }
   return idx;
 }
 int sony2010eSelector(uint16_t /*tag*/, const byte* /*pData*/, size_t /*size*/, TiffComponent* pRoot) {
-  static constexpr auto models = std::array{
+  static constexpr const char* models[] = {
       "SLT-A58",   "SLT-A99",  "ILCE-3000", "ILCE-3500", "NEX-3N",    "NEX-5R",   "NEX-5T",
       "NEX-6",     "VG30E",    "VG900",     "DSC-RX100", "DSC-RX1",   "DSC-RX1R", "DSC-HX300",
       "DSC-HX50V", "DSC-TX30", "DSC-WX60",  "DSC-WX200", "DSC-WX300",
   };
-  return std::find(models.begin(), models.end(), getExifModel(pRoot)) != models.end() ? 0 : -1;
+  return Exiv2::find(models, getExifModel(pRoot)) ? 0 : -1;
 }
 
 int sony2FpSelector(uint16_t /*tag*/, const byte* /*pData*/, size_t /*size*/, TiffComponent* pRoot) {

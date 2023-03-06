@@ -72,6 +72,11 @@ target_include_directories(path-test PRIVATE
 
 install( TARGETS metacopy RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
+if( EXIV2_ENABLE_INIH )
+  target_link_libraries( ini-test PRIVATE inih::libinih )
+  target_link_libraries( ini-test PRIVATE inih::inireader )
+endif()
+
 if( EXPAT_FOUND )
     add_executable(        geotag    geotag.cpp)
     list(APPEND APPLICATIONS geotag)

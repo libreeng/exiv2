@@ -38,7 +38,7 @@ PNG tags             : http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/PNG
 */
 namespace {
 constexpr size_t nullSeparators = 2;
-}
+}  // namespace
 
 // *****************************************************************************
 // class member definitions
@@ -321,14 +321,12 @@ std::string PngChunk::makeMetadataChunk(const std::string& metadata, MetadataId 
   switch (type) {
     case mdComment:
       return makeUtf8TxtChunk("Description", metadata, true);
-    case mdExif:
-      rawProfile = writeRawProfile(metadata, "exif");
-      return makeAsciiTxtChunk("Raw profile type exif", rawProfile, true);
     case mdIptc:
       rawProfile = writeRawProfile(metadata, "iptc");
       return makeAsciiTxtChunk("Raw profile type iptc", rawProfile, true);
     case mdXmp:
       return makeUtf8TxtChunk("XML:com.adobe.xmp", metadata, false);
+    case mdExif:
     case mdIccProfile:
     case mdNone:
       return {};
@@ -478,10 +476,11 @@ DataBuf PngChunk::readRawProfile(const DataBuf& text, bool iTXt) {
   }
 
   DataBuf info;
-  unsigned char unhex[103] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0, 0,
-                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  1,  2, 3,
-                              4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0, 0,
-                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15};
+  const unsigned char unhex[103] = {
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15,
+  };
 
   if (iTXt) {
     info.alloc(text.size());
@@ -521,9 +520,6 @@ DataBuf PngChunk::readRawProfile(const DataBuf& text, bool iTXt) {
   while ('0' <= *sp && *sp <= '9') {
     // Compute the new length using unsigned long, so that we can check for overflow.
     const size_t newlength = (10 * length) + (*sp - '0');
-    if (newlength > std::numeric_limits<size_t>::max()) {
-      return {};  // Integer overflow.
-    }
     length = newlength;
     sp++;
     if (sp == eot) {
@@ -583,7 +579,7 @@ DataBuf PngChunk::readRawProfile(const DataBuf& text, bool iTXt) {
 }  // PngChunk::readRawProfile
 
 std::string PngChunk::writeRawProfile(const std::string& profileData, const char* profileType) {
-  static byte hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+  static const byte hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
   std::ostringstream oss;
   oss << '\n' << profileType << '\n' << std::setw(8) << profileData.size();

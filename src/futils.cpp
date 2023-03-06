@@ -12,15 +12,16 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
-#include <filesystem>
 #include <sstream>
 #include <stdexcept>
 
-#ifdef EXV_HAVE_UNISTD_H
-#include <unistd.h>  // for stat()
-#endif
-
+#if __has_include(<filesystem>)
+#include <filesystem>
 namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
 
 #if defined(_WIN32)
 // clang-format off
@@ -29,8 +30,12 @@ namespace fs = std::filesystem;
 // clang-format on
 #endif
 
-#if defined(__APPLE__) && defined(EXV_HAVE_LIBPROC_H)
+#if __has_include(<libproc.h>)
 #include <libproc.h>
+#endif
+
+#if __has_include(<unistd.h>)
+#include <unistd.h>  // for stat()
 #endif
 
 #if defined(__FreeBSD__)
@@ -42,7 +47,6 @@ namespace fs = std::filesystem;
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include <sys/un.h>
-#include <unistd.h>
 #endif
 
 #ifndef _MAX_PATH
@@ -71,13 +75,13 @@ std::string getEnv(int env_var) {
 
 /// @brief Convert an integer value to its hex character.
 char to_hex(char code) {
-  static char hex[] = "0123456789abcdef";
+  static const char hex[] = "0123456789abcdef";
   return hex[code & 15];
 }
 
 /// @brief Convert a hex character to its integer value.
 char from_hex(char ch) {
-  return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+  return isdigit(ch) ? ch - '0' : static_cast<char>(tolower(ch)) - 'a' + 10;
 }
 
 std::string urlencode(const std::string& str) {
@@ -166,9 +170,9 @@ size_t base64decode(const char* in, char* out, size_t out_size) {
   const auto buff = reinterpret_cast<const unsigned char*>(in);
 
   if (buff[input_length - 1] == '=')
-    (output_length)--;
+    output_length--;
   if (buff[input_length - 2] == '=')
-    (output_length)--;
+    output_length--;
 
   if (output_length + 1 < out_size) {
     for (size_t i = 0, j = 0; i < input_length;) {
@@ -195,7 +199,7 @@ size_t base64decode(const char* in, char* out, size_t out_size) {
 
 Protocol fileProtocol(const std::string& path) {
   Protocol result = pFile;
-  struct {
+  const struct {
     std::string name;
     Protocol prot;
     bool isUrl;  // path.size() > name.size()
@@ -234,7 +238,7 @@ std::string strError() {
 #else
   char buf[n] = {};
   const int ret = strerror_r(error, buf, n);
-  enforce(ret != ERANGE, Exiv2::ErrorCode::kerCallFailed);
+  Internal::enforce(ret != ERANGE, Exiv2::ErrorCode::kerCallFailed);
 #endif
   os << buf;
   // Issue# 908.
@@ -260,7 +264,7 @@ void Uri::Decode(Uri& uri) {
 Uri Uri::Parse(const std::string& uri) {
   Uri result;
 
-  if (!uri.length())
+  if (uri.empty())
     return result;
 
   auto uriEnd = uri.end();
@@ -287,8 +291,7 @@ Uri Uri::Parse(const std::string& uri) {
   auto authEnd = std::find(protocolEnd, uriEnd, '@');
   if (authEnd != uriEnd) {
     auto userStart = authStart;
-    auto userEnd = std::find(authStart, authEnd, ':');
-    if (userEnd != authEnd) {
+    if (auto userEnd = std::find(authStart, authEnd, ':'); userEnd != authEnd) {
       result.Username = std::string(userStart, userEnd);
       ++userEnd;
       result.Password = std::string(userEnd, authEnd);
@@ -316,7 +319,7 @@ Uri Uri::Parse(const std::string& uri) {
     auto portEnd = (pathStart != uriEnd) ? pathStart : queryStart;
     result.Port = std::string(hostEnd, portEnd);
   }
-  if (!result.Port.length() && result.Protocol == "http")
+  if (result.Port.empty() && result.Protocol == "http")
     result.Port = "80";
 
   // path
@@ -342,14 +345,12 @@ std::string getProcessPath() {
     }
     CloseHandle(processHandle);
   }
-#elif defined(__APPLE__)
-#ifdef EXV_HAVE_LIBPROC_H
+#elif __has_include(<libproc.h>)
   const int pid = getpid();
   char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
   if (proc_pidpath(pid, pathbuf, sizeof(pathbuf)) > 0) {
     ret = pathbuf;
   }
-#endif
 #elif defined(__FreeBSD__)
   unsigned int n;
   char buffer[PATH_MAX] = {};
@@ -374,7 +375,7 @@ std::string getProcessPath() {
     ret = path;
   }
 #elif defined(__unix__)
-  ret = std::filesystem::read_symlink("/proc/self/exe");
+  ret = fs::read_symlink("/proc/self/exe");
 #endif
 
   const size_t idxLastSeparator = ret.find_last_of(EXV_SEPARATOR_CHR);
